@@ -13,8 +13,9 @@ Hakimino stores account credentials in a local encrypted vault. A master
 passphrase derives an AES-256 key using Argon2id; AES-GCM encrypts and authenticates
 the entire collection. A password generator uses Python's `secrets` module.
 
-This is the first local implementation based on Class 7, PDF page 16. The full
-course-site brief has not yet been obtained, so CLI format, exact parameters and
+This implementation includes a basic desktop interface and a command-line interface,
+based on Class 7, PDF page 16. The full
+course-site brief has not yet been obtained, so exact parameters and
 additional submission requirements remain to be checked. The slide states a
 12 November deadline, teams of 2–3, and that the README accounts for half of the
 project mark. No individual contribution split is claimed here.
@@ -26,6 +27,36 @@ Requires Python 3.11 or later. In Windows PowerShell, from this repository:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
+```
+
+### Desktop interface
+
+On Windows, double-click `Start-Hakimino.cmd`, or run:
+
+```powershell
+.\.venv\Scripts\python.exe -m hakimino.gui
+```
+
+The GUI uses Python's Tkinter (included with standard Windows Python installers).
+On Linux, install your distribution's Tk package if it is missing.
+Enter a master passphrase, then choose **Create new vault** and confirm it, or
+browse to an existing `.vault` file and choose **Unlock vault**.
+Use **Add entry** to enter a name, username and password; **Generate strong password**
+fills a hidden 24-character password. **Save new entry** encrypts the record.
+Select an entry to view its username and masked password. Search filters names.
+**Show password** reveals it for 15 seconds; **Delete entry** requires confirmation.
+Editing existing entries is not included in this first UI version.
+
+**Lock vault**, closing the window, or five minutes without keyboard/mouse clicks
+clears the displayed secrets and releases the session's master-password reference.
+Unsaved form input is discarded when selecting another entry, filtering or locking.
+While unlocked, the master password remains in process memory so operations do
+not require repeated prompts; Python cannot guarantee secure memory erasure.
+Password reveal is still visible to screen capture and anyone looking at the screen.
+
+### Command-line interface
+
+```powershell
 .\.venv\Scripts\python.exe -m hakimino --help
 .\.venv\Scripts\python.exe -m hakimino --vault personal.vault init
 .\.venv\Scripts\python.exe -m hakimino --vault personal.vault add school --generate
@@ -154,9 +185,22 @@ personal vault or prove security against every attack.
 ## Code and references
 
 - `hakimino/vault.py`: key derivation, encryption, format validation and file operations.
+- `hakimino/session.py`: UI-independent unlock/lock lifecycle and vault operations.
+- `hakimino/gui.py`: Tkinter desktop views, events, search and inactivity/reveal timers.
+- `Start-Hakimino.cmd`: Windows desktop launcher after environment setup.
 - `hakimino/cli.py`: commands and non-echoing interactive prompts.
 - `tests/test_vault.py`: repeatable functional and rejection tests.
+- `tests/test_gui.py`: session tests and real Tk widget workflows with temporary vaults.
+  GUI tests require a display; on a headless machine use a virtual display such as
+  Xvfb. Without a display, widget tests explicitly skip rather than claim success.
+
+The desktop UI calls the session layer, which delegates storage and cryptography
+to the same vault implementation as the CLI. Future UI layouts and additional
+operations can be added without duplicating encryption code. The file format is
+unchanged; vaults created by either interface work in the other.
+
 - Course source: *Class 7 NotesApp Login Fix*, PDF page 16, slide 09.
+- [Python Tkinter](https://docs.python.org/3/library/tkinter.html): desktop widgets and event loop.
 - [Argon2-cffi API](https://argon2-cffi.readthedocs.io/en/stable/api.html): raw Argon2 API and parameter units.
 - [Cryptography AESGCM](https://cryptography.io/en/latest/hazmat/primitives/aead/#cryptography.hazmat.primitives.ciphers.aead.AESGCM): nonce, tag, AAD and authentication failures.
 - [Python secrets](https://docs.python.org/3/library/secrets.html): cryptographic random generation.
