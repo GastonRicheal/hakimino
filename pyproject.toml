@@ -15,5 +15,8 @@ test = ["pytest>=8,<10"]
 [project.scripts]
 hakimino = "hakimino.cli:main"
 
+[project.gui-scripts]
+hakimino-gui = "hakimino.gui:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
