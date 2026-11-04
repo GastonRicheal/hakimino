@@ -119,6 +119,31 @@ Hakimino. If Tk is missing, install Tk support matching the selected Python
 installation. Headless machines need a display for GUI tests. The CLI remains
 available through `.venv/bin/python -m hakimino --help`.
 
+### Maodie-themed desktop design
+
+The brand remains **Hakimino** and all interface text is English. A warm cream,
+terracotta, and cocoa palette pairs user-supplied cat portraits with a playful
+empty-state decoration. A persistent sidebar, explicit locked/unlocked badge, white form
+cards, entry counts, clear-search control, and read-only detail hints separate
+navigation from sensitive actions. The cat art is decorative, not a security claim.
+Expected input errors switch the sidebar to the user-selected facepalm cat image;
+unlock and file-access errors use the surprised cat. Both retain an English error
+status and detailed error dialog. The welcome page and new-entry form have their
+own user-selected decorations. Successful
+unlock, generation, save, deletion, or manual lock restores the guardian image.
+The persistent caption does not include entered credentials.
+
+The password generator defaults to 24 characters; the UI length control accepts
+16–128 whole-number characters using the existing `secrets` generator. Invalid
+lengths leave the current password unchanged. The same vault/session code, masked
+passwords, 15-second reveal, five-minute lock, and deletion confirmation remain.
+The minimum window is 1000 by 740 pixels; smaller displays may need OS scaling.
+
+Images are bundled for offline use and shown as static PNGs, without flashing or
+extra runtime image dependencies. See [asset provenance and rights notes](docs/ASSET_CREDITS.md).
+Classroom use is not presented as a blanket copyright exemption. A missing image
+falls back to text rather than preventing vault access.
+
 ### Desktop interface
 
 On Windows, double-click `Start-Hakimino.cmd`, or run:
@@ -131,8 +156,8 @@ The GUI uses Python's Tkinter (included with standard Windows Python installers)
 On Linux, install your distribution's Tk package if it is missing.
 Enter a master passphrase, then choose **Create new vault** and confirm it, or
 browse to an existing `.vault` file and choose **Unlock vault**.
-Use **Add entry** to enter a name, username and password; **Generate strong password**
-fills a hidden 24-character password. **Save new entry** encrypts the record.
+Use **Add entry** to enter a name, username and password; **Generate password**
+fills a hidden password (24 characters by default; choose 16–128 in Length). **Save new entry** encrypts the record.
 Select an entry to view its username and masked password. Search filters names.
 **Show password** reveals it for 15 seconds; **Delete entry** requires confirmation.
 Editing existing entries is not included in this first UI version.
@@ -330,3 +355,7 @@ unchanged; vaults created by either interface work in the other.
 - [Argon2-cffi API](https://argon2-cffi.readthedocs.io/en/stable/api.html): raw Argon2 API and parameter units.
 - [Cryptography AESGCM](https://cryptography.io/en/latest/hazmat/primitives/aead/#cryptography.hazmat.primitives.ciphers.aead.AESGCM): nonce, tag, AAD and authentication failures.
 - [Python secrets](https://docs.python.org/3/library/secrets.html): cryptographic random generation.
+
+## Optional local web UI
+
+Run `.venv/bin/python -m hakimino.web --data-dir ./vaults/web-tests` to test the actual encrypted vault from a local browser. This is a loopback-only development interface, not a hosted service. Use dedicated test credentials. See [Local web UI](docs/LOCAL_WEB_UI.md) for behavior, safeguards and verification.
