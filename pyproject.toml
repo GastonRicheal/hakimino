@@ -20,3 +20,6 @@ hakimino-gui = "hakimino.gui:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+hakimino = ["assets/*.png", "web/*.html", "web/*.js"]

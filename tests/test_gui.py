@@ -182,3 +182,159 @@ def test_idle_and_reveal_timers(app, monkeypatch):
     app.root.mainloop()
     assert not app.session.unlocked
     assert app.password.get() == ""
+
+
+
+def test_theme_assets_and_english_brand(app):
+    assert app.root.title() == "Hakimino | Your private vault"
+    for picture in (app.cat_portrait, app.cat_empty, app.cat_error, app.cat_access_error, app.cat_welcome, app.cat_new):
+        assert picture is not None
+        assert 0 < picture.width() <= 180
+        assert 0 < picture.height() <= 180
+    assert app._load_sticker("missing.png", 150) is None
+
+
+def test_empty_search_and_count_states(app):
+    unlock(app)
+    assert app.count.get() == "0 entries"
+    assert "No secrets yet" in app.empty_message.get()
+    assert app.empty_label.place_info()
+    add(app)
+    assert app.count.get() == "1 entry"
+    assert not app.empty_label.place_info()
+    app.query.set("not present")
+    app.root.update()
+    assert app.count.get() == "0 / 1 entries"
+    assert "No matching" in app.empty_message.get()
+    app.clear_search_button.invoke()
+    app.root.update()
+    assert app.query.get() == ""
+    assert len(app.tree.get_children()) == 1
+    app.lock_button.invoke()
+    assert app.count.get() == "0 entries"
+    assert app.session_state.get() == "VAULT LOCKED"
+
+
+def test_custom_length_and_invalid_input_preserve_password(app):
+    unlock(app)
+    app.length.set("32")
+    app.generate_button.invoke()
+    previous = app.password.get()
+    assert len(previous) == 32
+    for value in ("15", "129", "abc", "24.5", ""):
+        app.length.set(value)
+        app.generate_button.invoke()
+        assert app.password.get() == previous
+        assert app.cat_mood == "error"
+    assert len(app.test_errors) == 5
+    app.length.set("16")
+    app.generate_button.invoke()
+    assert len(app.password.get()) == 16
+    assert app.cat_mood == "guard"
+
+
+def test_wrong_password_shows_error_art_and_success_recovers(app):
+    app.master.set("wrong")
+    app.unlock_button.invoke()
+    assert app.cat_mood == "error"
+    assert str(app.cat_access_error) in str(app.mascot.cget("image"))
+    assert app.error_kind == "access"
+    assert "Oops!" in app.status.get()
+    assert "wrong" not in app.status.get().lower()
+    assert app.session_state.get() == "VAULT LOCKED"
+    unlock(app)
+    assert app.cat_mood == "guard"
+    assert app.session_state.get() == "VAULT UNLOCKED"
+
+
+def test_duplicate_save_shows_error_art_without_data_loss(app):
+    unlock(app)
+    add(app)
+    original = app.session.path.read_bytes()
+    add(app)
+    assert app.cat_mood == "error"
+    assert app.session.path.read_bytes() == original
+    assert "synthetic" not in app.status.get()
+    add(app, "Another")
+    assert app.cat_mood == "guard"
+    assert len(app.tree.get_children()) == 2
+
+
+def test_read_only_details_disable_generator_length(app):
+    unlock(app)
+    add(app)
+    select_first(app)
+    assert app.length_picker.instate(["disabled"])
+    assert "Read-only" in app.detail_hint.get()
+    app.new_button.invoke()
+    assert not app.length_picker.instate(["disabled"])
+
+
+def test_missing_art_does_not_block_error_feedback(app):
+    app.cat_error = None
+    app.error(VaultError("Synthetic test error"))
+    assert app.cat_mood == "error"
+    assert "Oops!" in app.mascot_caption.cget("text")
+    assert app.test_errors == ["Synthetic test error"]
+    unlock(app)
+    assert app.session.unlocked
+
+
+
+def test_english_interface_text(app):
+    import re
+    def descendants(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from descendants(child)
+    for widget in descendants(app.content):
+        if "text" in widget.keys():
+            assert not re.search(r"[\u4e00-\u9fff]", str(widget.cget("text")))
+
+
+def test_primary_controls_fit_minimum_window(app):
+    # Real Tk geometry validation, not a claim of human visual review.
+    root = app.root
+    root.geometry("1000x740")
+    root.deiconify()
+    root.update()
+    def inside(widget):
+        assert widget.winfo_ismapped()
+        left = widget.winfo_rootx() - root.winfo_rootx()
+        top = widget.winfo_rooty() - root.winfo_rooty()
+        assert left >= 0 and top >= 0
+        assert left + widget.winfo_width() <= root.winfo_width()
+        assert top + widget.winfo_height() <= root.winfo_height()
+    try:
+        for widget in (app.path_entry, app.master_entry, app.create_button, app.unlock_button, app.status_label):
+            inside(widget)
+        unlock(app)
+        for widget in (app.search_entry, app.new_button, app.save_button, app.delete_button,
+                       app.generate_button, app.length_picker, app.lock_button, app.status_label):
+            inside(widget)
+    finally:
+        root.withdraw()
+
+
+
+def test_new_entry_decoration_follows_form_mode(app):
+    unlock(app)
+    assert str(app.cat_new) in str(app.new_entry_art.cget("image"))
+    add(app)
+    select_first(app)
+    assert not app.new_entry_art.cget("image")
+    app.new_button.invoke()
+    assert str(app.cat_new) in str(app.new_entry_art.cget("image"))
+
+
+
+def test_validation_and_file_errors_use_distinct_reactions(app):
+    app.error(VaultError("Invalid input"))
+    assert app.error_kind == "input"
+    assert str(app.cat_error) in str(app.mascot.cget("image"))
+    app.error(OSError("Synthetic read failure"), kind="access")
+    assert app.error_kind == "access"
+    assert str(app.cat_access_error) in str(app.mascot.cget("image"))
+    unlock(app)
+    assert app.error_kind is None
+    assert str(app.cat_portrait) in str(app.mascot.cget("image"))
