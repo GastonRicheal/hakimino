@@ -1,0 +1,85 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} / Linux + Tk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y xvfb xauth
+      - name: Install project and test dependencies
+        run: |
+          python -m pip install -e ".[test]"
+          python -m pip check
+      - name: Record runtime versions
+        run: |
+          python --version
+          python -m pip list
+      - name: Require a working Tk display
+        run: |
+          xvfb-run -a python - <<'PYCODE'
+          import tkinter as tk
+          root = tk.Tk()
+          root.withdraw()
+          root.update()
+          print("Tk patch level:", root.tk.call("info", "patchlevel"))
+          root.destroy()
+          PYCODE
+      - name: Run core and GUI tests
+        run: xvfb-run -a python -m pytest -v -ra --junitxml=test-results.xml
+      - name: Reject skipped or missing GUI tests
+        run: |
+          python - <<'PYCODE'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("test-results.xml").getroot()
+          cases = list(root.iter("testcase"))
+          if not cases:
+              raise SystemExit("No test cases were reported")
+          if any(case.find("skipped") is not None for case in cases):
+              raise SystemExit("Skipped tests are not accepted in CI")
+          if any(case.find(tag) is not None for case in cases for tag in ("failure", "error")):
+              raise SystemExit("Test failures or errors were reported")
+          required = {"test_create_via_window", "test_wrong_password_stays_locked",
+                      "test_add_search_reveal_and_lock", "test_duplicate_entry_preserves_vault",
+                      "test_delete_cancel_and_confirm", "test_lock_during_confirmation_prevents_delete",
+                      "test_idle_and_reveal_timers"}
+          observed = {case.get("name") for case in cases
+                      if case.get("classname") == "tests.test_gui"}
+          missing = required - observed
+          if missing:
+              raise SystemExit(f"Required GUI tests missing: {sorted(missing)}")
+          print(f"Verified {len(cases)} successful cases, including every required GUI workflow")
+          PYCODE
+      - name: Check CLI entry points
+        run: |
+          python -m hakimino --help
+          hakimino --help
