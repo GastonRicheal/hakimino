@@ -316,6 +316,31 @@ def test_primary_controls_fit_minimum_window(app):
         root.withdraw()
 
 
+@pytest.mark.parametrize("geometry", ["1000x740", "1120x780"])
+def test_lock_guidance_is_fully_visible_in_both_form_modes(app, geometry):
+    root = app.root
+    root.geometry(geometry)
+    root.deiconify()
+    try:
+        unlock(app)
+        add(app)
+        for mode in (app.new_entry, lambda: select_first(app)):
+            mode()
+            root.update()
+            for widget in (app.lock_hint, app.save_button, app.delete_button,
+                           app.generate_button, app.reveal_button, *app.fields):
+                assert widget.winfo_ismapped()
+                assert widget.winfo_height() >= widget.winfo_reqheight()
+                ancestor = widget.master
+                while ancestor is not None:
+                    assert widget.winfo_rooty() >= ancestor.winfo_rooty()
+                    assert (widget.winfo_rooty() + widget.winfo_height()
+                            <= ancestor.winfo_rooty() + ancestor.winfo_height())
+                    ancestor = ancestor.master
+    finally:
+        root.withdraw()
+
+
 
 def test_new_entry_decoration_follows_form_mode(app):
     unlock(app)

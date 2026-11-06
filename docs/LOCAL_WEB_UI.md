@@ -28,3 +28,10 @@ Data is saved to the selected directory as Argon2id-derived AES-GCM ciphertext u
 ## Validation
 
 `tests/test_web.py` uses a temporary directory and real HTTP requests to verify creation, encrypted persistence, generation, reveal, lock/unlock, deletion, unchanged files after failed operations, path restrictions, request-origin checks and fail-closed unexpected errors. The test does not use production credentials.
+
+Run `node --test tests/web_reveal.test.cjs` with Node.js 18+ to check frontend
+reveal timing. Hide, page visibility changes, navigation and lock invalidate
+outstanding reveal replies. Returning to a tab requires a new explicit reveal;
+a late response must not restore plaintext. Hide remains usable while a reveal
+request is pending. The tests execute the shipped JavaScript against a minimal
+DOM with controlled network timing, rather than claiming a full-browser test.

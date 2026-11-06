@@ -108,6 +108,16 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(404, {"error": "Not found."})
 
     def do_POST(self):
+        # Consume a bounded body before replying. Closing an HTTP/1.0 socket
+        # with unread request bytes can reset it on Windows and discard a 403.
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 32768 or self.headers.get("Content-Type") != "application/json":
+                raise ValueError()
+            self.connection.settimeout(5)
+            raw_body = self.rfile.read(size)
+        except (ValueError, OSError):
+            return self.reply(400, {"error": "Invalid request.", "kind": "input"})
         cookie = SimpleCookie()
         try:
             cookie.load(self.headers.get("Cookie", ""))
@@ -121,11 +131,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api":
             return self.reply(404, {"error": "Not found."})
         try:
-            size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= 32768 or self.headers.get("Content-Type") != "application/json":
-                raise ValueError()
-            self.connection.settimeout(5)
-            data = json.loads(self.rfile.read(size))
+            data = json.loads(raw_body)
             if not isinstance(data, dict):
                 raise ValueError()
         except (ValueError, OSError):
