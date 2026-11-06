@@ -75,6 +75,24 @@ def test_cross_site_and_unauthenticated_requests_denied(server, headers):
     assert not (server.data_dir / "bad.vault").exists()
 
 
+def test_unauthenticated_split_body_receives_complete_rejection(server):
+    # Send headers and body separately, like http.client.request does internally.
+    # The server must not close/reset before the client finishes the bounded body.
+    import socket
+    body = json.dumps({"action": "create", "name": "denied.vault", "master": MASTER}).encode()
+    with socket.create_connection(server.server_address, timeout=5) as sock:
+        headers = (f"POST /api HTTP/1.1\r\nHost: 127.0.0.1:{server.server_port}\r\n"
+                   f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n")
+        sock.sendall(headers.encode())
+        time.sleep(0.05)
+        sock.sendall(body)
+        response = http.client.HTTPResponse(sock)
+        response.begin()
+        assert response.status == 403
+        assert json.loads(response.read())["kind"] == "access"
+    assert not (server.data_dir / "denied.vault").exists()
+
+
 @pytest.mark.parametrize("name", ["../outside.vault", "/tmp/outside.vault", "wrong.json", "a/b.vault"])
 def test_path_restriction(server, name):
     assert request(server, "create", name=name, master=MASTER)[0] == 400
