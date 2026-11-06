@@ -184,6 +184,14 @@ class VaultApp:
         self.vault_name.pack(side="left")
         self.lock_button = ttk.Button(top, text="Lock vault", command=self.lock)
         self.lock_button.pack(side="right")
+        # Reserve space outside the form before allocating the expandable panes.
+        # Safety guidance must not be clipped by a crowded entry-details card.
+        self.lock_hint = ttk.Label(
+            self.workspace,
+            text="Auto-lock after 5 minutes without typing or clicks.\n"
+                 "Locking clears displayed secrets and unsaved input.",
+            style="Muted.TLabel", wraplength=700)
+        self.lock_hint.pack(side="bottom", fill="x", pady=(10, 0))
         panes = ttk.Frame(self.workspace)
         panes.pack(fill="both", expand=True)
         panes.columnconfigure(0, weight=2, minsize=240)
@@ -215,24 +223,24 @@ class VaultApp:
         self.empty_label = ttk.Label(self.list_area, textvariable=self.empty_message, style="CardMuted.TLabel",
                                      wraplength=170, justify="center", anchor="center",
                                      image=self.cat_empty or "", compound="top", padding=8)
-        right = ttk.Frame(panes, style="Card.TFrame", padding=22)
+        right = ttk.Frame(panes, style="Card.TFrame", padding=14)
         right.grid(row=0, column=1, sticky="nsew")
         self.entry_header = ttk.Frame(right, style="Card.TFrame")
         self.entry_header.pack(fill="x")
         self.new_entry_art = ttk.Label(self.entry_header, image=self.cat_new or "", style="Card.TLabel")
         self.new_entry_art.pack(side="right", padx=(8, 0))
         ttk.Label(self.entry_header, textvariable=self.heading, style="CardHeading.TLabel").pack(side="left", anchor="w")
-        ttk.Label(right, textvariable=self.detail_hint, style="CardMuted.TLabel", wraplength=320).pack(anchor="w", pady=(6, 16))
+        ttk.Label(right, textvariable=self.detail_hint, style="CardMuted.TLabel", wraplength=320).pack(anchor="w", pady=(6, 8))
         self.fields = []
         for title, variable in [("Entry name", self.label), ("Username", self.username), ("Password", self.password)]:
             ttk.Label(right, text=title, style="Card.TLabel").pack(anchor="w")
             entry = ttk.Entry(right, textvariable=variable, show="•" if variable is self.password else "", width=24)
-            entry.pack(fill="x", pady=(5, 12))
+            entry.pack(fill="x", pady=(5, 6))
             self.fields.append(entry)
         self.reveal_button = ttk.Checkbutton(right, text="Show password for 15 seconds", variable=self.reveal, command=self.toggle_reveal)
         self.reveal_button.pack(anchor="w")
         generator = ttk.Frame(right, style="Card.TFrame")
-        generator.pack(fill="x", pady=(10, 14))
+        generator.pack(fill="x", pady=(6, 10))
         ttk.Label(generator, text="Length", style="CardMuted.TLabel").pack(side="left", padx=(0, 8))
         self.length_picker = ttk.Spinbox(generator, from_=16, to=128, textvariable=self.length, width=4)
         self.length_picker.pack(side="left")
@@ -244,8 +252,6 @@ class VaultApp:
         self.save_button.pack(side="left")
         self.delete_button = ttk.Button(row, text="Delete entry", style="Danger.TButton", command=self.delete)
         self.delete_button.pack(side="left", padx=(8, 0))
-        ttk.Label(right, text="Auto-lock after 5 minutes without typing or clicks.\nLocking clears displayed secrets and unsaved input.",
-                  style="CardMuted.TLabel", wraplength=320).pack(anchor="w", pady=(18, 0))
 
     def browse(self):
         path = filedialog.askopenfilename(parent=self.root, title="Open vault", filetypes=[("Encrypted vault", "*.vault")])
