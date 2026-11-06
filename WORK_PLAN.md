@@ -1,6 +1,8 @@
 # Project 2 delivery checklist
 
 Baseline reviewed: `7e7e353`. Plan created: 4 November 2026.
+Status refreshed: 6 November 2026, after PRs #1–#6 merged into `cfa0470`.
+Historical baseline reports remain tied to the exact revisions they tested.
 This is a proposed team work plan, not a claim that optional features are required
 by the instructor. Agree on ownership with the other contributor before parallel work.
 
@@ -14,15 +16,18 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
 ## Ordered work
 
 - [x] 0. Record this checklist and the review baseline.
-- [ ] 1. Establish a reproducible local baseline.
+- [x] 1. Establish a reproducible local baseline.
   - Install the project and test dependencies in an isolated environment.
   - Run the existing suite; record OS, Python/dependency versions, commit, and
     passed/failed/skipped counts. Separate unavailable GUI support from test success.
   - Deliverable: verification record; address discovered failures in separate fixes.
-- [ ] 2. Add continuous integration for existing tests.
+  - Evidence: `docs/verification/baseline-2026-11-04.md` (46 tests on macOS);
+    integrated `cfa0470` also passed 69 tests without skips on Windows on 6 November.
+- [x] 2. Add continuous integration for existing tests.
   - Run core and real Tk widget tests with a suitable display (for example Xvfb
     on Linux). Report skips explicitly. Do not execute real vault operations in CI.
   - Acceptance: CI runs on pull requests and its first actual result is recorded.
+  - Evidence: PR #3 merged; Actions run `41882203499` passed on integrated main.
 - [ ] 3. Validate the GUI and CLI end to end on team machines.
   - Create, add, generate, search, reveal/hide, delete/cancel, lock, and reopen.
   - Check wrong-password handling and tampering rejection using disposable copies.
@@ -34,11 +39,12 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
   - Define rename/collision semantics; preserve originals on cancellation or failure.
   - Acceptance: edit/reopen, invalid-input, collision, locked-session, and write-failure
     tests; updated usage documentation. Split implementation into focused PRs if needed.
-- [ ] 5. Strengthen the explanation and evidence in the README.
+- [x] 5. Strengthen the explanation and evidence in the README.
   - Add a master-passphrase -> Argon2id -> key -> AES-GCM data-flow diagram.
   - Map confirmed requirements to code and tests. Explain salt, nonce, AAD,
     offline guessing, authenticated decryption, and memory/rollback limitations.
   - Link actual verification results; record only agreed, factual contributions.
+  - Evidence: PR #5 merged with requirements mapping, encryption flow and dated results.
 - [ ] 6. Freeze and rehearse the submission.
   - Install from a clean checkout and run tests on the exact candidate commit.
   - Rehearse a short synthetic-data demonstration; check team names/IDs together.
