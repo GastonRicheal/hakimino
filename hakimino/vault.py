@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import stat
 import string
 import tempfile
 from contextlib import contextmanager
@@ -74,7 +75,11 @@ def _decode(value, size=None):
 def _derive(password, salt):
     if not isinstance(password, str) or not password or len(password) > 1024:
         raise VaultError("Master password must contain 1 to 1024 characters.")
-    return hash_secret_raw(password.encode("utf-8"), salt,
+    try:
+        encoded = password.encode("utf-8")
+    except UnicodeError as exc:
+        raise VaultError("Master password must be valid Unicode text.") from exc
+    return hash_secret_raw(encoded, salt,
                            time_cost=KDF["iterations"], memory_cost=KDF["memory_kib"],
                            parallelism=KDF["parallelism"], hash_len=32,
                            type=Type.ID, version=19)
@@ -92,6 +97,11 @@ def _validate_entries(entries):
             raise VaultError("Entry fields must be text of at most 4096 characters.")
         if not entry["password"]:
             raise VaultError("Entry password cannot be empty.")
+        try:
+            for value in (label, *entry.values()):
+                value.encode("utf-8")
+        except UnicodeError as exc:
+            raise VaultError("Entry fields must be valid Unicode text.") from exc
 
 
 def seal(entries, password):
@@ -161,7 +171,17 @@ def _write(path, data):
 
 
 def _read(path, password):
-    with path.open("rb") as stream:
+    # Nonblocking open prevents a crafted FIFO from freezing the GUI/server
+    # before the file-type check. NOFOLLOW closes the final-component race on
+    # platforms that expose it; hostile directory replacement remains out of scope.
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise VaultError("Vault must be a regular file.")
+        if info.st_size > MAX_FILE_BYTES:
+            raise VaultError("Vault exceeds the 8 MiB size limit.")
         data = stream.read(MAX_FILE_BYTES + 1)
     return unseal(data, password), hashlib.sha256(data).hexdigest()
 

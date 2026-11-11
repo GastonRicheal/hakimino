@@ -173,18 +173,20 @@ the path if the native save dialog selected a different location.]
 showing an entry prints its username but keeps the password hidden. Revealing
 it requires an explicit option; we do not need that option for this demonstration.
 
-For the final web-polish version, the full suite passes ninety-three Python tests
-and thirty-one frontend tests, with no skips. Dependency checks also pass. Our GitHub
+For the security-hardened version, one hundred and sixteen Python tests and
+thirty-one frontend tests pass, with no skips. Dependency checks also pass. Our GitHub
 CI runs on Python 3.11 and 3.12 with a working Tk display.
 [Show the successful run for the exact submitted commit before presenting it
 as remote verification.]
-We additionally exercised twelve CLI scenarios using real terminal processes.
+In the earlier acceptance rehearsal, we also exercised twelve CLI scenarios
+using real terminal processes.
 
 This remains a coursework prototype. An unlocked process contains secrets in
 memory, Python does not guarantee secure memory erasure, and we do not claim
 protection against a compromised operating system. There is no recovery feature
-for a forgotten master passphrase. The optional local web demo shares unlock
-state and is not designed for public hosting or real multi-user accounts.
+for a forgotten master passphrase. Independent browser clients now have separate
+unlock states, but tabs sharing a browser profile still share a session. The
+optional web demo is not designed for public hosting or real multi-user accounts.
 
 In summary, Hakimino combines the four required security mechanisms with local
 persistence, explicit failure handling and a themed interface. Thank you. We are

@@ -261,3 +261,62 @@ def test_unrelated_save_also_rejects_stale_delete(tmp_path, encrypted):
         vault.operate(path, MASTER, "delete", label="school", expected_revision=revision)
     assert path.read_bytes() == saved
     assert vault.operate(path, MASTER, "list") == ["other", "school"]
+
+
+@pytest.mark.parametrize("field", ["master", "label", "username", "password"])
+def test_invalid_unicode_is_controlled_error(tmp_path, field):
+    path = tmp_path / "unicode.vault"
+    vault.operate(path, MASTER, "init")
+    before = path.read_bytes()
+    data = {"label": "school", "username": "student", "entry_password": "synthetic"}
+    password = MASTER
+    if field == "master": password = "invalid master \ud800"
+    else: data["entry_password" if field == "password" else field] = "invalid\ud800"
+    with pytest.raises(vault.VaultError, match="Unicode"):
+        vault.operate(path, password, "add", **data)
+    assert path.read_bytes() == before
+
+
+def test_nonregular_vault_is_rejected_without_blocking(tmp_path):
+    import os, subprocess, sys
+    if not hasattr(os, "mkfifo"):
+        # Portable alternative still checks rejection of a non-regular path.
+        path = tmp_path / "directory.vault"
+        path.mkdir()
+        with pytest.raises((vault.VaultError, OSError)):
+            vault.operate(path, MASTER, "list")
+        return
+    path = tmp_path / "pipe.vault"
+    os.mkfifo(path)
+    code = """import sys
+from hakimino.vault import operate, VaultError
+try:
+    operate(sys.argv[1], 'synthetic master only', 'list')
+except VaultError as exc:
+    assert 'regular file' in str(exc)
+    print('REJECTED')
+else:
+    raise AssertionError('special file accepted')
+"""
+    result = subprocess.run([sys.executable, "-c", code, str(path)],
+                            capture_output=True, text=True, timeout=3, check=True)
+    assert result.stdout.strip() == "REJECTED"
+    assert not path.with_name(path.name + ".lock").exists()
+
+
+def test_final_component_symlink_race_is_rejected(tmp_path, encrypted, monkeypatch):
+    import os
+    if not hasattr(os, "O_NOFOLLOW"):
+        return  # Extra platform flag is not exposed; ordinary symlink guard remains.
+    path = tmp_path / "test.vault"
+    target = tmp_path / "target.vault"
+    path.write_bytes(encrypted); target.write_bytes(encrypted)
+    real_read = vault._read
+    def switched(p, password):
+        p.unlink(); p.symlink_to(target)
+        return real_read(p, password)
+    monkeypatch.setattr(vault, "_read", switched)
+    with pytest.raises(OSError):
+        vault.operate(path, MASTER, "list")
+    assert target.read_bytes() == encrypted
+    assert not path.with_name(path.name + ".lock").exists()

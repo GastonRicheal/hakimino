@@ -1,0 +1,5 @@
+Baseline: ed49da36acbe3258074f199fee58eb8da81a4214
+Synthetic data, isolated loopback server, before fixes.
+Independent fresh client can read owner unlocked synthetic entry without master: True
+Malformed action produces server error and locks owner session: True
+Unpaired Unicode password error type: UnicodeEncodeError

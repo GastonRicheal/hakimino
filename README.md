@@ -298,8 +298,10 @@ CLI captures a snapshot before asking for `DELETE`. The web client sends its own
 view revision on both read/reveal and delete requests; another tab's status poll
 cannot refresh that token silently. Conflicts do not write the vault. Desktop
 conflicts lock and clear the stale details; web conflicts clear the affected
-browser view and require unlocking again (the shared server session remains a
-local-demo limitation).
+browser view and require unlocking again. Each browser cookie now has its own
+unlock state and CSRF token; tabs in the same browser profile still share that
+cookie. A new independent client cannot inherit another client’s unlocked vault.
+See the [security review and fixes](docs/verification/security-review-2026-11-11.md).
 
 This is deliberately vault-wide: an unrelated entry change also requires a fresh
 view before deletion. It is not protection against malicious rollback, direct file

@@ -1,0 +1,1 @@
+{"dependencies": [{"name": "argon2-cffi", "version": "25.1.0", "vulns": []}, {"name": "argon2-cffi-bindings", "version": "26.1.0", "vulns": []}, {"name": "cryptography", "version": "50.0.2", "vulns": []}, {"name": "cffi", "version": "2.1.1", "vulns": []}, {"name": "pycparser", "version": "3.12", "vulns": []}], "fixes": []}

@@ -10,8 +10,8 @@ and accepted files or links using the full Project 2 instructions on the course 
 
 Use the desktop application for the live demonstration and the CLI for the
 terminal workflow. The optional browser interface is a local demonstration
-surface for synthetic data. Browser clients connected to one server process
-share its unlock state. The desktop and CLI use the same encrypted file format.
+surface for synthetic data. Independent browser cookies have separate unlock
+states; tabs sharing a browser profile still share their cookie and unlock state. The desktop and CLI use the same encrypted file format.
 
 ## Current implementation and acceptance rehearsal — 11 November 2026
 
@@ -31,6 +31,14 @@ The two browser polish issues found in that rehearsal are resolved in the
 The final delivery includes the English script and rehearsal evidence. Check
 the CI for the exact final commit; the earlier linked run remains evidence for
 `666ead4` only. These handoff documents do not imply that course submission is complete.
+
+## Security follow-up — 11 November 2026
+
+The [security review](verification/security-review-2026-11-11.md) records the
+subsequent browser-session isolation, input validation and file-read hardening,
+along with current test evidence and residual risks. Earlier test totals above
+refer only to their named revisions. Verify CI for the exact security-fix commit
+before submission; local success is not remote CI verification.
 
 ## Historical integrated baseline — PR #7
 
@@ -98,7 +106,8 @@ Use synthetic data and the updated application in every client. Stale deletion
 is now rejected by a ciphertext-revision check under the file lock, including
 same-name replacements with identical contents. If another client saves, unlock
 again and review before retrying; no data is changed by the rejected deletion.
-The web interface still shares its local server session. See the
+Independent web clients no longer inherit another client’s unlocked vault; tabs
+sharing one browser cookie still share a session. See the
 [follow-up fix and tests](verification/stale-deletion-fix-2026-11-11.md).
 
 1. Create `demo.vault` with a synthetic master passphrase. Add an entry using a
