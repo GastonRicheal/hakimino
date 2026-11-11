@@ -6,13 +6,23 @@ This optional interface exercises the real `VaultSession` and encrypted `.vault`
 
 From the repository with dependencies installed:
 
+```powershell
+.\.venv\Scripts\python.exe -m hakimino.web --port 8766 --data-dir ./vaults/web-tests
+```
+
+On macOS or Linux:
+
 ```sh
 .venv/bin/python -m hakimino.web --port 8766 --data-dir ./vaults/web-tests
 ```
 
-Open the loopback address printed by the process in the Codex browser panel. Use a dedicated test vault and test credentials. Create `ui-test.vault` with a passphrase of at least 12 characters. Add an entry, lock, refresh, unlock with the same passphrase, and verify the saved entry. Delete requires confirmation. Existing vaults are never overwritten by creation.
+Open the printed loopback address in a browser. Use a dedicated test vault and test credentials. Create `ui-test.vault` with a passphrase of at least 12 characters. Add an entry, lock, refresh, unlock with the same passphrase, and verify the saved entry. Delete requires confirmation. Existing vaults are never overwritten by creation.
 
 Data is saved to the selected directory as Argon2id-derived AES-GCM ciphertext using the existing atomic write and file-lock implementation. Master passphrases are retained only in the Python session while unlocked; Python does not guarantee secure memory erasure. The web UI does not use localStorage or sessionStorage. Passwords are sent over loopback HTTP, returned only on reveal, and hidden after 15 seconds or when the page is hidden. Closing a tab does not immediately terminate the server session; it expires after five minutes without an operation. Reloading the app while unlocked resumes that local session. Tabs connected to the same server share the session.
+
+Opening or reopening a vault invalidates previous views. If another tab changes
+the open vault, operations from the old view are refused and the old view clears
+when it next checks the session. Unlock the intended vault before continuing.
 
 ## Scope and safeguards
 

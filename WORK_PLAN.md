@@ -46,6 +46,8 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
   - Link actual verification results; record only agreed, factual contributions.
   - Evidence: PR #5 merged with requirements mapping, encryption flow and dated results.
 - [ ] 6. Freeze and rehearse the submission.
+  - Follow [the submission handoff](docs/SUBMISSION.md) for clean installation,
+    verification and the demonstration sequence.
   - Install from a clean checkout and run tests on the exact candidate commit.
   - Rehearse a short synthetic-data demonstration; check team names/IDs together.
   - Confirm the instructor's submission channel, deadline time/timezone, and required

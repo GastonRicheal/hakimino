@@ -331,6 +331,9 @@ complete rubric compliance.
 
 ### Remaining submission checks
 
+See [submission handoff](docs/SUBMISSION.md) for the clean-install commands,
+a short demonstration, and the items to confirm on the course site.
+
 - [ ] Obtain teammate review for any subsequent proposed changes before merging.
 - [ ] Run the suite again on the final integrated submission commit.
 - [ ] Perform native GUI checks on both actual machines, including a full
@@ -369,4 +372,6 @@ unchanged; vaults created by either interface work in the other.
 
 ## Optional local web UI
 
-Run `.venv/bin/python -m hakimino.web --data-dir ./vaults/web-tests` to test the actual encrypted vault from a local browser. This is a loopback-only development interface, not a hosted service. Use dedicated test credentials. See [Local web UI](docs/LOCAL_WEB_UI.md) for behavior, safeguards and verification.
+See [Local web UI](docs/LOCAL_WEB_UI.md) for the Windows and macOS/Linux launch
+commands and verification steps. The browser interface uses the same encrypted
+vault code and listens only on the local machine. Use dedicated test credentials.
