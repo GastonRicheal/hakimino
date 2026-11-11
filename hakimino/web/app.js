@@ -6,20 +6,21 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function notify(s){document.getElementById('notice').textContent=s}
 function armLock(){clearTimeout(idleTimer);if(state.unlocked)idleTimer=setTimeout(()=>act('lock'),300000)}
 async function api(action, fields={}){
- const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','X-Hakimino-CSRF':csrf},credentials:'same-origin',cache:'no-store',body:JSON.stringify({action,...fields})});
+ const payload={action,...fields,vault_epoch:state.vault_epoch};
+ const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','X-Hakimino-CSRF':csrf},credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});
  const data=await r.json();if(!r.ok)throw data;return data;
 }
 function hidePassword(){revealGeneration++;clearTimeout(revealTimer);const p=document.getElementById('visible-password');if(p)p.textContent='••••••••••••••••'}
 async function revealPassword(){
  hidePassword();
- const generation=revealGeneration, label=selected, vault=state.name;
+ const generation=revealGeneration, label=selected, vault=state.vault_epoch;
  const target=document.getElementById('visible-password');
  if(document.hidden||!state.unlocked||label===null||!target)return;
  const data=await api('show',{label,reveal:true});
  // Hiding, navigation or locking invalidates replies already in flight, even if
  // the user switches back to this tab before the network response arrives.
  if(generation!==revealGeneration||document.hidden||!state.unlocked||
-    selected!==label||state.name!==vault||document.getElementById('visible-password')!==target)return;
+    selected!==label||state.vault_epoch!==vault||document.getElementById('visible-password')!==target)return;
  target.textContent=data.password;
  revealTimer=setTimeout(hidePassword,15000);
 }
@@ -51,4 +52,21 @@ document.addEventListener('keydown',e=>{if(overlay.hidden)return;if(e.key==='Esc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)hidePassword()});
 window.addEventListener('pagehide',hidePassword);
 render();act('status');
-setInterval(async()=>{if(busy||!state.unlocked)return;try{const data=await api('status');if(!data.unlocked){state=data;render();notify('Vault automatically locked after inactivity.')}}catch{state={unlocked:false,labels:[],name:null};render();notify('Local server unavailable. Displayed secrets cleared.')}},15000);
+async function refreshStatus(){
+ if(busy||!state.unlocked)return;
+ const epoch=state.vault_epoch;
+ let notice;
+ try{
+  const data=await api('status');
+  if(data.unlocked&&data.vault_epoch===epoch)return;
+  notice=data.unlocked?'The open vault changed. Unlock the intended vault to continue.':'The vault is locked.';
+ }catch{
+  notice='Local server unavailable. Displayed secrets cleared.';
+ }
+ // Ignore status replies that describe an earlier view while another action runs.
+ if(busy||state.vault_epoch!==epoch)return;
+ state={unlocked:false,labels:[],name:null};
+ render();
+ notify(notice);
+}
+setInterval(refreshStatus,15000);

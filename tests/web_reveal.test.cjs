@@ -10,7 +10,7 @@ const MASK = '••••••••••••••••';
 
 async function fixture() {
   const nodes = new Map(), events = {}, windowEvents = {}, timers = new Map();
-  let timerId = 0, reply, calls = 0;
+  let timerId = 0, reply, calls = 0, payload;
   function node(id) {
     if (!nodes.has(id)) nodes.set(id, {
       textContent: '', innerHTML: '', content: 'synthetic-csrf', value: '',
@@ -33,12 +33,19 @@ async function fixture() {
   vm.runInContext(source, context);
   await new Promise(setImmediate); // Finish the real script's initial status request.
   const run = code => vm.runInContext(code, context);
-  run("state={unlocked:true,labels:['school'],name:'test.vault'};selected='school';");
-  context.fetch = () => { calls++; return new Promise(resolve => { reply = resolve; }); };
+  run("state={unlocked:true,labels:['school'],name:'test.vault',vault_epoch:1};selected='school';");
+  context.fetch = (_, options) => {
+    calls++;
+    payload = JSON.parse(options.body);
+    return new Promise(resolve => { reply = resolve; });
+  };
   return {
     node, nodes, run, document, events, windowEvents, timers, buttons,
     get calls() { return calls; },
-    reply() { reply({ok: true, json: async () => ({password: 'synthetic-test-password'})}); },
+    get payload() { return payload; },
+    reply(data = {password: 'synthetic-test-password'}, ok = true) {
+      reply({ok, json: async () => data});
+    },
   };
 }
 
@@ -66,6 +73,7 @@ const interruptions = {
   },
   'vault locked and view rendered': f => f.run("state={unlocked:false,labels:[]};render()"),
   'entry changed': f => f.run("selected='different-entry'"),
+  'same vault reopened': f => f.run("state.vault_epoch=2"),
   'password view replaced': f => f.nodes.set('visible-password', {textContent: MASK}),
 };
 for (const [name, interrupt] of Object.entries(interruptions)) {
@@ -99,4 +107,24 @@ test('returning to the tab requires a fresh explicit reveal', async () => {
   pending = f.run("act('reveal')");
   f.reply(); await pending;
   assert.equal(f.node('visible-password').textContent, 'synthetic-test-password');
+});
+
+test('a stale reveal carries its original unlock and clears the old view', async () => {
+  const f = await fixture();
+  const pending = f.run("act('reveal')");
+  assert.equal(f.payload.vault_epoch, 1);
+  f.reply({unlocked: false, kind: 'access', error: 'The open vault changed.'}, false);
+  await pending;
+  assert.equal(f.run('state.unlocked'), false);
+  assert.equal(f.node('visible-password').textContent, MASK);
+});
+
+test('status polling clears the old view when a different unlock is active', async () => {
+  const f = await fixture();
+  f.node('visible-password').textContent = 'synthetic-test-password';
+  const pending = f.run('refreshStatus()');
+  f.reply({unlocked: true, name: 'another.vault', labels: ['school'], vault_epoch: 2});
+  await pending;
+  assert.equal(f.run('state.unlocked'), false);
+  assert.equal(f.node('visible-password').textContent, MASK);
 });

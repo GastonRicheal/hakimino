@@ -29,7 +29,8 @@ def request(server, action=None, *, path="/api", headers=None, **fields):
     h = {"Cookie": f"hakimino={server.cookie}", "Origin": server.origin,
          "X-Hakimino-CSRF": server.csrf, "Content-Type": "application/json"}
     h.update(headers or {})
-    conn.request("POST" if action else "GET", path, json.dumps({"action": action, **fields}) if action else None, h)
+    payload = {"action": action, "vault_epoch": server.vault_epoch, **fields}
+    conn.request("POST" if action else "GET", path, json.dumps(payload) if action else None, h)
     response = conn.getresponse()
     body = response.read()
     result = (response.status, dict(response.getheaders()), json.loads(body) if response.getheader("Content-Type") == "application/json" else body)
@@ -67,6 +68,33 @@ def test_validation_preserves_vault(server):
     assert path.read_bytes() == original
     assert request(server, "create", name="test.vault", master=MASTER)[0] == 400
     assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("next_vault", ["first.vault", "second.vault"])
+def test_stale_vault_view_cannot_read_or_modify_current_vault(server, next_vault):
+    previous = request(server, "create", name="first.vault", master=MASTER)[2]["vault_epoch"]
+    assert request(server, "add", label="school", password="first-test-password")[0] == 200
+    action = "unlock" if next_vault == "first.vault" else "create"
+    current = request(server, action, name=next_vault, master=MASTER)[2]["vault_epoch"]
+    if action == "create":
+        assert request(server, "add", label="school", password="second-test-password")[0] == 200
+    assert previous != current
+    path = server.data_dir / next_vault
+    before = path.read_bytes()
+    for action, fields in [
+        ("show", {"label": "school", "reveal": True}),
+        ("delete", {"label": "school"}),
+        ("add", {"label": "extra", "password": "synthetic"}),
+        ("generate", {}),
+        ("lock", {}),
+    ]:
+        status, _, result = request(server, action, vault_epoch=previous, **fields)
+        assert status == 409 and result["unlocked"] is False
+        assert "password" not in result
+    assert request(server, "show", label="school", vault_epoch=None)[0] == 409
+    assert path.read_bytes() == before
+    status = request(server, "status")[2]
+    assert status["unlocked"] and status["labels"] == ["school"]
 
 
 @pytest.mark.parametrize("headers", [{"Origin": "https://evil.example"}, {"Host": "evil.example"}, {"Cookie": ""}, {"X-Hakimino-CSRF": "invalid"}])

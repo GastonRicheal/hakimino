@@ -15,6 +15,10 @@ from .vault import VaultError, generate_password
 ROOT = Path(__file__).parent
 
 
+class StaleVaultError(VaultError):
+    """The request was made from a view of a previous unlock."""
+
+
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -24,6 +28,7 @@ class LocalServer(ThreadingHTTPServer):
         self.cookie = secrets.token_urlsafe(32)
         self.csrf = secrets.token_urlsafe(32)
         self.session = VaultSession()
+        self.vault_epoch = 0
         self.mutex = threading.Lock()
         self.last_use = time.monotonic()
         self.data_dir = Path(data_dir).resolve()
@@ -38,6 +43,10 @@ class LocalServer(ThreadingHTTPServer):
         action = data.get("action")
         if time.monotonic() - self.last_use >= 300:
             self.session.lock()
+        if self.session.unlocked and action in {"add", "delete", "show", "generate", "lock"}:
+            epoch = data.get("vault_epoch")
+            if type(epoch) is not int or epoch != self.vault_epoch:
+                raise StaleVaultError("The open vault changed. Unlock the intended vault to continue.")
         if action != "status":
             self.last_use = time.monotonic()
         if action in {"create", "unlock"}:
@@ -46,6 +55,7 @@ class LocalServer(ThreadingHTTPServer):
             if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}\.vault", name):
                 raise VaultError("Use a simple .vault filename: letters, numbers, hyphens or underscores.")
             self.session.open(self.data_dir / name, data.get("master"), create=action == "create")
+            self.vault_epoch += 1
         elif action == "lock":
             self.session.lock()
         elif action == "generate":
@@ -66,6 +76,7 @@ class LocalServer(ThreadingHTTPServer):
         elif action != "status":
             raise VaultError("Unsupported operation.")
         return {"unlocked": self.session.unlocked,
+                "vault_epoch": self.vault_epoch if self.session.unlocked else None,
                 "name": self.session.path.name if self.session.unlocked else None,
                 "labels": self.session.run("list") if self.session.unlocked else []}
 
@@ -139,6 +150,8 @@ class Handler(BaseHTTPRequestHandler):
         with self.server.mutex:
             try:
                 result = self.server.dispatch(data)
+            except StaleVaultError as exc:
+                return self.reply(409, {"error": str(exc), "kind": "access", "unlocked": False})
             except VaultError as exc:
                 kind = "access" if data.get("action") in {"unlock", "create"} or not self.server.session.unlocked else "input"
                 return self.reply(400, {"error": str(exc), "kind": kind, "unlocked": self.server.session.unlocked})
