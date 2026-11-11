@@ -53,7 +53,12 @@ The existing Windows rehearsal in `docs/SUBMISSION.md` is prior team evidence;
 it was not independently repeated in this final macOS review. CI currently emits
 an Actions Node-runtime deprecation warning; it did not cause either job to fail.
 
-## Confirmed limitation: stale same-name entry replacement
+## Historical finding: stale same-name entry replacement
+
+**Follow-up:** the defect below was subsequently fixed by the
+[revision-checked deletion update](stale-deletion-fix-2026-11-11.md).
+The following describes the reviewed PR #7/application revision, not the fixed
+implementation. Its original test counts remain historical evidence.
 
 An isolated synthetic-data check reproduced stale replacement deletion through
 the desktop, CLI confirmation flow and web session. If client A sees entry X,

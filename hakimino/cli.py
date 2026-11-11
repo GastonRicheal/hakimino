@@ -45,9 +45,14 @@ def main(argv=None):
             kwargs["username"] = input("Entry username: ")
             kwargs["entry_password"] = (generate_password(args.length) if args.generate
                                         else secret("Entry password: "))
-        if args.action == "delete" and input("Delete this entry? Type DELETE: ") != "DELETE":
-            print("Cancelled.")
-            return 0
+        if args.action == "delete":
+            snapshot = operate(args.vault, master, "snapshot")
+            if args.label not in snapshot["labels"]:
+                raise VaultError("Entry not found.")
+            kwargs["expected_revision"] = snapshot["revision"]
+            if input("Delete this entry? Type DELETE: ") != "DELETE":
+                print("Cancelled.")
+                return 0
         result = operate(args.vault, master, args.action, **kwargs)
         if args.action == "show":
             if not args.reveal:

@@ -72,3 +72,13 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
 
 Cloud sync, JWT/server login, MFA, automatic backup, and password rotation are not
 currently scheduled. This checklist does not certify the application as production-safe.
+
+## Pre-submission corrective update — 11 November 2026
+
+- Fixed stale same-name deletion across desktop, CLI and local web clients using
+  ciphertext revisions checked atomically under the existing file lock.
+- Added regression coverage for identical-content replacement, confirmation-time
+  changes, missing/stale revisions, frontend masking and fresh-view recovery.
+- See [verification and boundaries](docs/verification/stale-deletion-fix-2026-11-11.md).
+- Direct main delivery for this correction was explicitly requested by the user;
+  it is an exception to the normal branch/PR workflow above.

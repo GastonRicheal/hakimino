@@ -1,6 +1,7 @@
 """Argon2id-derived AES-GCM vault. No plaintext files or stored key/verifier."""
 import base64
 import binascii
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,6 +22,10 @@ ALPHABET = string.ascii_letters + string.digits + "!@#$%^&*()-_=+"
 
 class VaultError(Exception):
     """Expected failure that is safe to show without exposing secrets."""
+
+
+class StaleRevisionError(VaultError):
+    """A view no longer matches the authenticated ciphertext on disk."""
 
 
 def generate_password(length=24):
@@ -158,17 +163,22 @@ def _write(path, data):
 def _read(path, password):
     with path.open("rb") as stream:
         data = stream.read(MAX_FILE_BYTES + 1)
-    return unseal(data, password)
+    return unseal(data, password), hashlib.sha256(data).hexdigest()
 
 
-def operate(path, password, action, *, label=None, username="", entry_password=None):
-    """Read or mutate a vault; no save occurs on failed authentication/validation."""
+def operate(path, password, action, *, label=None, username="", entry_password=None, expected_revision=None):
+    """Read or mutate a vault; failed authentication/validation never saves.
+
+    Delete requires the revision returned by snapshot before user confirmation.
+    Any intervening save invalidates it, even a change to an unrelated entry.
+    This is optimistic concurrency control, not malicious rollback detection.
+    """
     path = Path(path).absolute()
     if path.suffix != ".vault":
         raise VaultError("Use a .vault filename (ignored by Git by default).")
     if path.is_symlink():
         raise VaultError("Vault symlinks are not supported.")
-    if action not in {"init", "list", "show", "add", "delete"}:
+    if action not in {"init", "list", "snapshot", "show", "add", "delete"}:
         raise VaultError("Unknown action.")
     with _lock(path):
         if action == "init":
@@ -178,7 +188,15 @@ def operate(path, password, action, *, label=None, username="", entry_password=N
                 raise VaultError("Choose a master passphrase of at least 12 characters.")
             _write(path, seal({}, password))
             return None
-        entries = _read(path, password)
+        entries, revision = _read(path, password)
+        # Authenticate, compare and mutate under the SAME file lock. A digest of
+        # ciphertext detects delete/recreate even when plaintext is identical.
+        if action == "delete" or expected_revision is not None:
+            if (not isinstance(expected_revision, str) or
+                    expected_revision != revision):
+                raise StaleRevisionError("The vault changed. Unlock it again and review the entry before continuing.")
+        if action == "snapshot":
+            return {"labels": sorted(entries), "revision": revision}
         if action == "list":
             return sorted(entries)
         if action == "add":

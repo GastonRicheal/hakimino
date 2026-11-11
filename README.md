@@ -284,16 +284,28 @@ Locks coordinate this application; they do not defeat a hostile local user who
 can replace files or use alternate path aliases. This coursework prototype has
 not received an independent security audit.
 
-### Single-client use during the demonstration
+### Stale-view protection
 
-Do not modify the same vault concurrently from multiple desktop windows, CLI
-processes or browser tabs. Deletion identifies an entry by its name, not by a
-record revision: a stale selection can delete a newer replacement with the same
-name. File locks serialize individual operations but do not validate the state
-seen before confirmation. The web unlock-epoch check prevents operations from
-an earlier unlock; it does not detect same-unlock entry replacement. This known
-limitation remains unfixed. Use one client per vault and synthetic demonstration
-data; see the [verification record](docs/verification/submission-2026-11-11.md).
+Deletion requires the authenticated ciphertext revision that the user reviewed.
+The SHA-256 revision is a concurrency token, **not** a password hash or key.
+The storage layer authenticates, checks the expected revision and writes while
+holding the same file lock. Every save changes the ciphertext, so deletion and
+recreation with identical entry contents also invalidate an older view. No vault
+format migration is required; existing version-1 vaults remain readable.
+
+The desktop captures the selection revision before its confirmation dialog; the
+CLI captures a snapshot before asking for `DELETE`. The web client sends its own
+view revision on both read/reveal and delete requests; another tab's status poll
+cannot refresh that token silently. Conflicts do not write the vault. Desktop
+conflicts lock and clear the stale details; web conflicts clear the affected
+browser view and require unlocking again (the shared server session remains a
+local-demo limitation).
+
+This is deliberately vault-wide: an unrelated entry change also requires a fresh
+view before deletion. It is not protection against malicious rollback, direct file
+replacement outside the lock protocol, or old application versions that bypass
+the new check. Use the updated version in every client, and synthetic demo data.
+See [the fix verification record](docs/verification/stale-deletion-fix-2026-11-11.md).
 
 ## Verification
 

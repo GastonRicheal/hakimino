@@ -29,7 +29,7 @@ def request(server, action=None, *, path="/api", headers=None, **fields):
     h = {"Cookie": f"hakimino={server.cookie}", "Origin": server.origin,
          "X-Hakimino-CSRF": server.csrf, "Content-Type": "application/json"}
     h.update(headers or {})
-    payload = {"action": action, "vault_epoch": server.vault_epoch, **fields}
+    payload = {"action": action, "vault_epoch": server.vault_epoch, "vault_revision": server.session.revision, **fields}
     conn.request("POST" if action else "GET", path, json.dumps(payload) if action else None, h)
     response = conn.getresponse()
     body = response.read()
@@ -160,3 +160,43 @@ def test_inactivity_and_unexpected_failure_lock(server, monkeypatch):
     assert "secret-must-not-be-returned" not in json.dumps(body)
     assert not server.session.unlocked
     assert (server.data_dir / "test.vault").read_bytes() == before
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_same_unlock_stale_view_cannot_delete_or_reveal_replacement(server, external):
+    from hakimino.session import VaultSession
+    request(server, "create", name="test.vault", master=MASTER)
+    old = request(server, "add", label="school", username="student", password="synthetic")[2]
+    path = server.data_dir / "test.vault"
+    if external:
+        other = VaultSession()
+        other.open(path, MASTER)
+        other.run("delete", label="school")
+        other.run("add", label="school", username="student", entry_password="synthetic")
+        other.lock()
+    else:
+        assert request(server, "delete", label="school")[0] == 200
+        assert request(server, "add", label="school", username="student", password="synthetic")[0] == 200
+    replacement = path.read_bytes()
+    current = request(server, "status")[2]  # Another tab's polling must not authorize the stale tab.
+    assert current["vault_epoch"] == old["vault_epoch"]
+    assert current["vault_revision"] != old["vault_revision"]
+    for action in ("delete", "show"):
+        code, _, body = request(server, action, label="school", reveal=True,
+                                vault_revision=old["vault_revision"])
+        assert code == 409 and body["unlocked"] is False
+        assert "password" not in body and "username" not in body
+        assert path.read_bytes() == replacement
+    assert request(server, "show", label="school", vault_revision=current["vault_revision"])[0] == 200
+    assert request(server, "delete", label="school", vault_revision=current["vault_revision"])[0] == 200
+
+
+@pytest.mark.parametrize("revision", [None, "", 12, {}])
+def test_web_missing_or_invalid_revision_cannot_delete_or_reveal(server, revision):
+    request(server, "create", name="test.vault", master=MASTER)
+    request(server, "add", label="school", password="synthetic")
+    path = server.data_dir / "test.vault"
+    before = path.read_bytes()
+    for action in ("delete", "show"):
+        assert request(server, action, label="school", reveal=True, vault_revision=revision)[0] == 409
+        assert path.read_bytes() == before

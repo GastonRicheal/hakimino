@@ -363,3 +363,41 @@ def test_validation_and_file_errors_use_distinct_reactions(app):
     unlock(app)
     assert app.error_kind is None
     assert str(app.cat_portrait) in str(app.mascot.cget("image"))
+
+
+@pytest.mark.parametrize("during_confirmation", [False, True])
+def test_desktop_stale_selection_cannot_delete_replacement(app, monkeypatch, during_confirmation):
+    unlock(app)
+    add(app)
+    select_first(app)
+    path = app.session.path
+    replacement = []
+    def replace_entry():
+        other = VaultSession()
+        other.open(path, MASTER)
+        entry = other.run("show", label="School")
+        other.run("delete", label="School")
+        other.run("add", label="School", username=entry["username"], entry_password=entry["password"])
+        other.lock()
+        replacement.append(path.read_bytes())
+    if not during_confirmation:
+        replace_entry()
+    def confirm(*args, **kwargs):
+        if during_confirmation:
+            replace_entry()
+            # Even a refreshed session cannot change the selected view's token.
+            app.session.run("list")
+        return True
+    monkeypatch.setattr(gui.messagebox, "askyesno", confirm)
+    app.delete_button.invoke()
+    assert path.read_bytes() == replacement[0]
+    assert any("vault changed" in error for error in app.test_errors)
+    assert not app.session.unlocked
+    assert app.password.get() == app.username.get() == ""
+    # Reopening obtains an intentional fresh view and allows normal deletion.
+    app.lock()
+    unlock(app)
+    select_first(app)
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: True)
+    app.delete_button.invoke()
+    assert operate(path, MASTER, "list") == []

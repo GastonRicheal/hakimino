@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 
 import pytest
@@ -87,7 +88,8 @@ def test_full_lifecycle(tmp_path):
         "username": "student", "entry_password": "test-entry-password"})
     assert vault.operate(path, MASTER, "list") == ["school"]
     assert vault.operate(path, MASTER, "show", label="school")["password"] == "test-entry-password"
-    vault.operate(path, MASTER, "delete", label="school")
+    vault.operate(path, MASTER, "delete", label="school",
+                      expected_revision=hashlib.sha256(path.read_bytes()).hexdigest())
     assert vault.operate(path, MASTER, "list") == []
     assert not list(tmp_path.glob("*.lock"))
     assert not list(tmp_path.glob("*.tmp"))
@@ -101,6 +103,8 @@ def test_full_lifecycle(tmp_path):
 def test_failed_mutation_preserves_file(tmp_path, encrypted, action, kwargs):
     path = tmp_path / "test.vault"
     path.write_bytes(encrypted)
+    if action == "delete":
+        kwargs["expected_revision"] = vault.operate(path, MASTER, "snapshot")["revision"]
     with pytest.raises(vault.VaultError):
         vault.operate(path, MASTER, action, **kwargs)
     assert path.read_bytes() == encrypted
@@ -120,7 +124,8 @@ def test_lock_blocks_other_process(tmp_path, encrypted):
     lock = tmp_path / "test.vault.lock"
     lock.touch()
     with pytest.raises(vault.VaultError, match="busy"):
-        vault.operate(path, MASTER, "delete", label="school")
+        vault.operate(path, MASTER, "delete", label="school",
+                      expected_revision=hashlib.sha256(path.read_bytes()).hexdigest())
     assert lock.exists()
     assert path.read_bytes() == encrypted
 
@@ -132,7 +137,8 @@ def test_replace_failure_preserves_original(tmp_path, encrypted, monkeypatch):
         raise OSError("simulated replace failure")
     monkeypatch.setattr(vault.os, "replace", fail)
     with pytest.raises(OSError):
-        vault.operate(path, MASTER, "delete", label="school")
+        vault.operate(path, MASTER, "delete", label="school",
+                      expected_revision=hashlib.sha256(path.read_bytes()).hexdigest())
     assert path.read_bytes() == encrypted
     assert list(tmp_path.iterdir()) == [path]
 
@@ -171,3 +177,87 @@ def test_cli_refuses_echo_fallback(monkeypatch):
         pytest.fail("Must stop before reading a secret without echo protection")
     monkeypatch.setattr(cli.getpass, "getpass", fallback)
     assert cli.main(["init"]) == 1
+
+
+@pytest.mark.parametrize("identical", [False, True])
+def test_stale_delete_rejects_same_label_replacement(tmp_path, encrypted, identical):
+    path = tmp_path / "test.vault"
+    path.write_bytes(encrypted)
+    original = vault.operate(path, MASTER, "snapshot")
+    vault.operate(path, MASTER, "delete", label="school", expected_revision=original["revision"])
+    entry = ENTRIES["school"] if identical else {"username": "new-user", "password": "new-secret"}
+    vault.operate(path, MASTER, "add", label="school", username=entry["username"], entry_password=entry["password"])
+    replacement = path.read_bytes()
+    assert vault.operate(path, MASTER, "snapshot")["revision"] != original["revision"]
+    for action in ("delete", "show"):
+        with pytest.raises(vault.StaleRevisionError, match="vault changed"):
+            vault.operate(path, MASTER, action, label="school", expected_revision=original["revision"])
+        assert path.read_bytes() == replacement
+    fresh = vault.operate(path, MASTER, "snapshot")
+    vault.operate(path, MASTER, "delete", label="school", expected_revision=fresh["revision"])
+    assert vault.operate(path, MASTER, "list") == []
+    assert list(tmp_path.iterdir()) == [path]
+
+
+@pytest.mark.parametrize("revision", [None, "", "invalid", 123, {}])
+def test_delete_requires_valid_revision(tmp_path, encrypted, revision):
+    path = tmp_path / "test.vault"
+    path.write_bytes(encrypted)
+    with pytest.raises(vault.StaleRevisionError):
+        vault.operate(path, MASTER, "delete", label="school", expected_revision=revision)
+    assert path.read_bytes() == encrypted
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_revision_compare_and_write_share_file_lock(tmp_path, encrypted, monkeypatch):
+    path = tmp_path / "test.vault"
+    path.write_bytes(encrypted)
+    revision = vault.operate(path, MASTER, "snapshot")["revision"]
+    read, write = vault._read, vault._write
+    def checked_read(p, password):
+        assert p.with_name(p.name + ".lock").exists()
+        with pytest.raises(vault.VaultError, match="busy"):
+            vault.operate(p, password, "add", label="other", entry_password="synthetic")
+        return read(p, password)
+    def checked_write(p, data):
+        assert p.with_name(p.name + ".lock").exists()
+        return write(p, data)
+    monkeypatch.setattr(vault, "_read", checked_read)
+    monkeypatch.setattr(vault, "_write", checked_write)
+    vault.operate(path, MASTER, "delete", label="school", expected_revision=revision)
+    assert vault.unseal(path.read_bytes(), MASTER) == {}
+
+
+@pytest.mark.parametrize("replace", [False, True])
+def test_cli_delete_confirmation_is_bound_to_snapshot(tmp_path, encrypted, monkeypatch, capsys, replace):
+    path = tmp_path / "test.vault"
+    path.write_bytes(encrypted)
+    monkeypatch.setattr(cli, "secret", lambda _: MASTER)
+    saved = []
+    def confirm(_):
+        if replace:
+            # Same plaintext, fresh ciphertext: an ABA replacement must conflict.
+            path.write_bytes(vault.seal(ENTRIES, MASTER))
+        saved.append(path.read_bytes())
+        return "DELETE"
+    monkeypatch.setattr("builtins.input", confirm)
+    result = cli.main(["--vault", str(path), "delete", "school"])
+    if replace:
+        assert result == 1
+        assert "vault changed" in capsys.readouterr().err
+        assert path.read_bytes() == saved[0]
+    else:
+        assert result == 0
+        assert vault.unseal(path.read_bytes(), MASTER) == {}
+
+
+def test_unrelated_save_also_rejects_stale_delete(tmp_path, encrypted):
+    path = tmp_path / "test.vault"
+    path.write_bytes(encrypted)
+    revision = vault.operate(path, MASTER, "snapshot")["revision"]
+    vault.operate(path, MASTER, "add", label="other", entry_password="synthetic")
+    saved = path.read_bytes()
+    with pytest.raises(vault.StaleRevisionError):
+        vault.operate(path, MASTER, "delete", label="school", expected_revision=revision)
+    assert path.read_bytes() == saved
+    assert vault.operate(path, MASTER, "list") == ["other", "school"]

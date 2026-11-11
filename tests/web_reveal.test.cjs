@@ -33,7 +33,7 @@ async function fixture() {
   vm.runInContext(source, context);
   await new Promise(setImmediate); // Finish the real script's initial status request.
   const run = code => vm.runInContext(code, context);
-  run("state={unlocked:true,labels:['school'],name:'test.vault',vault_epoch:1};selected='school';");
+  run("state={unlocked:true,labels:['school'],name:'test.vault',vault_epoch:1,vault_revision:'original-revision'};selected='school';");
   context.fetch = (_, options) => {
     calls++;
     payload = JSON.parse(options.body);
@@ -73,6 +73,7 @@ const interruptions = {
   },
   'vault locked and view rendered': f => f.run("state={unlocked:false,labels:[]};render()"),
   'entry changed': f => f.run("selected='different-entry'"),
+  'same vault revision changed': f => f.run("state.vault_revision='replacement-revision'"),
   'same vault reopened': f => f.run("state.vault_epoch=2"),
   'password view replaced': f => f.nodes.set('visible-password', {textContent: MASK}),
 };
@@ -127,4 +128,43 @@ test('status polling clears the old view when a different unlock is active', asy
   await pending;
   assert.equal(f.run('state.unlocked'), false);
   assert.equal(f.node('visible-password').textContent, MASK);
+});
+
+
+test('reveal sends the viewed ciphertext revision', async () => {
+  const f = await fixture();
+  const pending = f.run("act('reveal')");
+  assert.equal(f.payload.vault_revision, 'original-revision');
+  f.reply(); await pending;
+});
+
+test('delete preserves the revision captured before confirmation', async () => {
+  const f = await fixture();
+  f.run("window.confirm=()=>{state.vault_revision='replacement-revision';return true}");
+  const pending = f.run("act('delete')");
+  assert.equal(f.payload.vault_revision, 'original-revision');
+  assert.equal(f.payload.label, 'school');
+  f.reply({unlocked:false,kind:'access',error:'The vault changed.'}, false);
+  await pending;
+  assert.equal(f.run('state.unlocked'), false);
+  assert.equal(f.node('visible-password').textContent, MASK);
+});
+
+test('polling masks and clears a same-unlock changed revision', async () => {
+  const f = await fixture();
+  f.node('visible-password').textContent = 'synthetic-test-password';
+  const pending = f.run('refreshStatus()');
+  f.reply({unlocked:true,labels:['school'],vault_epoch:1,vault_revision:'replacement-revision'});
+  await pending;
+  assert.equal(f.run('state.unlocked'), false);
+  assert.equal(f.node('visible-password').textContent, MASK);
+});
+
+test('unchanged polling does not disrupt the selected entry', async () => {
+  const f = await fixture();
+  const pending = f.run('refreshStatus()');
+  f.reply({unlocked:true,labels:['school'],vault_epoch:1,vault_revision:'original-revision'});
+  await pending;
+  assert.equal(f.run('state.unlocked'), true);
+  assert.equal(f.run('selected'), 'school');
 });

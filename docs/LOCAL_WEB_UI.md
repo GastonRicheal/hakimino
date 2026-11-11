@@ -24,16 +24,21 @@ Opening or reopening a vault invalidates previous views. If another tab changes
 the open vault, operations from the old view are refused and the old view clears
 when it next checks the session. Unlock the intended vault before continuing.
 
-## Same-vault concurrency limitation
+## Same-vault stale-view protection
 
-Use one client per vault during the synthetic-data demonstration. The unlock
-epoch does not change when another client deletes and recreates an entry in the
-same unlocked vault. An old view can therefore reveal or delete the replacement
-under the same name. This is a pre-existing record-version limitation, distinct
-from the cross-vault protection. Desktop and CLI deletion also identify records
-by name and can encounter the same replacement race. No concurrent-edit safety
-or production-security guarantee is made. A future fix must compare the expected
-record version atomically under the file lock.
+The unlock epoch still protects against views from an earlier unlock. A separate
+`vault_revision` now binds each read/reveal or delete request to the ciphertext
+seen by that browser. Missing or stale revisions are rejected with HTTP 409;
+no entry contents are returned and no write occurs. Status returns labels and
+revision from one authenticated, locked snapshot. It must not authorize another
+tab's old selection. Periodic status checks clear a changed view instead of
+silently updating its revision while preserving the old selected entry.
+
+The same storage-level check protects desktop and CLI deletion. It is vault-wide,
+so even an unrelated save can require unlocking and reviewing again. All clients
+must run the updated code; this is not a malicious-rollback defense. The server's
+shared unlock state remains a documented local-demo limitation. Use synthetic data
+only. See [regression evidence](verification/stale-deletion-fix-2026-11-11.md).
 
 ## Scope and safeguards
 

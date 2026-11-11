@@ -73,9 +73,12 @@ the [GitHub Actions results](https://github.com/GastonRicheal/hakimino/actions).
 
 ## Demonstrate with a disposable vault
 
-Use one client per vault. Do not concurrently modify it from another desktop
-window, CLI process or browser tab: a stale deletion can remove a same-name
-replacement entry. The known limitation is not fixed by this documentation.
+Use synthetic data and the updated application in every client. Stale deletion
+is now rejected by a ciphertext-revision check under the file lock, including
+same-name replacements with identical contents. If another client saves, unlock
+again and review before retrying; no data is changed by the rejected deletion.
+The web interface still shares its local server session. See the
+[follow-up fix and tests](verification/stale-deletion-fix-2026-11-11.md).
 
 1. Create `demo.vault` with a synthetic master passphrase. Add an entry using a
    fictional username and generate its password in the app.

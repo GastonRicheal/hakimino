@@ -6,7 +6,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from tkinter import font as tkfont
 
 from .session import VaultSession
-from .vault import VaultError, generate_password
+from .vault import StaleRevisionError, VaultError, generate_password
 
 IDLE_MS = 5 * 60 * 1000
 REVEAL_MS = 15 * 1000
@@ -18,6 +18,7 @@ class VaultApp:
         self.session = session or VaultSession()
         self.labels = []
         self.selected = None
+        self.selected_revision = None
         self.idle_job = self.reveal_job = None
         root.title("Hakimino | Your private vault")
         root.geometry("1120x780")
@@ -316,6 +317,7 @@ class VaultApp:
 
     def clear_form(self):
         self.selected = None
+        self.selected_revision = None
         self.hide_password()
         for var in (self.label, self.username, self.password):
             var.set("")
@@ -343,6 +345,7 @@ class VaultApp:
             label = self.labels[int(selection[0])]
             entry = self.session.run("show", label=label)
             self.selected = label
+            self.selected_revision = self.session.revision
             self.label.set(label)
             self.username.set(entry["username"])
             self.password.set(entry["password"])
@@ -383,13 +386,14 @@ class VaultApp:
 
     def delete(self):
         label = self.selected
+        revision = self.selected_revision
         if label is None:
             return
         if not messagebox.askyesno("Delete entry", "Permanently delete the selected entry?", parent=self.root):
             return
         try:
             # Auto-lock can run during a modal confirmation; run() rechecks session state.
-            self.session.run("delete", label=label)
+            self.session.run("delete", label=label, expected_revision=revision)
             self.labels = self.session.run("list")
             self.filter_entries()
             self._set_mood("guard")
@@ -447,6 +451,9 @@ class VaultApp:
         self.status_label.configure(style="Error.TLabel" if has_error else "Muted.TLabel")
 
     def error(self, exc, *, kind="input"):
+        if isinstance(exc, StaleRevisionError):
+            self.lock()  # Discard stale details, including any revealed password.
+            kind = "access"
         self._set_mood("error", kind)
         # Keep detailed diagnostics in the existing modal. Never copy input secrets
         # into the persistent status area or a screenshot-friendly mascot caption.

@@ -6,21 +6,21 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function notify(s){document.getElementById('notice').textContent=s}
 function armLock(){clearTimeout(idleTimer);if(state.unlocked)idleTimer=setTimeout(()=>act('lock'),300000)}
 async function api(action, fields={}){
- const payload={action,...fields,vault_epoch:state.vault_epoch};
+ const payload={action,vault_epoch:state.vault_epoch,vault_revision:state.vault_revision,...fields};
  const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','X-Hakimino-CSRF':csrf},credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});
  const data=await r.json();if(!r.ok)throw data;return data;
 }
 function hidePassword(){revealGeneration++;clearTimeout(revealTimer);const p=document.getElementById('visible-password');if(p)p.textContent='••••••••••••••••'}
 async function revealPassword(){
  hidePassword();
- const generation=revealGeneration, label=selected, vault=state.vault_epoch;
+ const generation=revealGeneration, label=selected, vault=state.vault_epoch, revision=state.vault_revision;
  const target=document.getElementById('visible-password');
  if(document.hidden||!state.unlocked||label===null||!target)return;
  const data=await api('show',{label,reveal:true});
  // Hiding, navigation or locking invalidates replies already in flight, even if
  // the user switches back to this tab before the network response arrives.
  if(generation!==revealGeneration||document.hidden||!state.unlocked||
-    selected!==label||state.vault_epoch!==vault||document.getElementById('visible-password')!==target)return;
+    selected!==label||state.vault_epoch!==vault||state.vault_revision!==revision||document.getElementById('visible-password')!==target)return;
  target.textContent=data.password;
  revealTimer=setTimeout(hidePassword,15000);
 }
@@ -40,7 +40,7 @@ async function act(action, fields={}){if(action==='hide'){hidePassword();return}
  else if(action==='dismiss'){overlay.hidden=true;overlay.innerHTML='';lastFocus?.isConnected&&lastFocus.focus()}
  else if(action==='generate'){const length=Number(document.getElementById('length').value);const data=await api('generate',{length});document.getElementById('entry-password').value=data.password;notify('A new password is ready. Save the entry to persist it.')}
  else if(action==='reveal')await revealPassword();
- else if(action==='delete'){if(!window.confirm(`Delete “${selected}” permanently from this vault?`))return;state=await api('delete',{label:selected});render();notify('Entry deleted from the encrypted vault.')}
+ else if(action==='delete'){const label=selected, vault_epoch=state.vault_epoch, vault_revision=state.vault_revision;if(!window.confirm(`Delete “${selected}” permanently from this vault?`))return;state=await api('delete',{label,vault_epoch,vault_revision});render();notify('Entry deleted from the encrypted vault.')}
  else if(action==='error-demo'){state=await api('lock');render();showError({kind:'critical',error:'This is a visual error test. Your vault was really locked; saved entries are unchanged.'},true)}
  else{state=await api(action,fields);render();if(action==='add')notify('Entry saved to your encrypted vault.');if(action==='create')notify('Vault created on disk. You can now add entries.');if(action==='lock')notify('Vault locked. Saved entries remain encrypted on disk.')}
  armLock();
@@ -54,17 +54,17 @@ window.addEventListener('pagehide',hidePassword);
 render();act('status');
 async function refreshStatus(){
  if(busy||!state.unlocked)return;
- const epoch=state.vault_epoch;
+ const epoch=state.vault_epoch, revision=state.vault_revision;
  let notice;
  try{
   const data=await api('status');
-  if(data.unlocked&&data.vault_epoch===epoch)return;
+  if(data.unlocked&&data.vault_epoch===epoch&&data.vault_revision===revision)return;
   notice=data.unlocked?'The open vault changed. Unlock the intended vault to continue.':'The vault is locked.';
  }catch{
   notice='Local server unavailable. Displayed secrets cleared.';
  }
  // Ignore status replies that describe an earlier view while another action runs.
- if(busy||state.vault_epoch!==epoch)return;
+ if(busy||state.vault_epoch!==epoch||state.vault_revision!==revision)return;
  state={unlocked:false,labels:[],name:null};
  render();
  notify(notice);
