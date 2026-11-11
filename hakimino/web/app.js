@@ -1,15 +1,29 @@
 'use strict';
 const screen=document.getElementById('screen'), overlay=document.getElementById('overlay');
-let state={unlocked:false,labels:[],name:null}, selected=null, busy=false, revealTimer, idleTimer, lastFocus;
+let state={unlocked:false,labels:[],name:null}, selected=null, busy=false, revealTimer, idleTimer, lastFocus, revealGeneration=0;
 const csrf=document.querySelector('meta[name="csrf-token"]').content;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notify(s){document.getElementById('notice').textContent=s}
 function armLock(){clearTimeout(idleTimer);if(state.unlocked)idleTimer=setTimeout(()=>act('lock'),300000)}
 async function api(action, fields={}){
- const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','X-Hakimino-CSRF':csrf},credentials:'same-origin',cache:'no-store',body:JSON.stringify({action,...fields})});
+ const payload={action,...fields,vault_epoch:state.vault_epoch};
+ const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json','X-Hakimino-CSRF':csrf},credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});
  const data=await r.json();if(!r.ok)throw data;return data;
 }
-function hidePassword(){clearTimeout(revealTimer);const p=document.getElementById('visible-password');if(p)p.textContent='••••••••••••••••'}
+function hidePassword(){revealGeneration++;clearTimeout(revealTimer);const p=document.getElementById('visible-password');if(p)p.textContent='••••••••••••••••'}
+async function revealPassword(){
+ hidePassword();
+ const generation=revealGeneration, label=selected, vault=state.vault_epoch;
+ const target=document.getElementById('visible-password');
+ if(document.hidden||!state.unlocked||label===null||!target)return;
+ const data=await api('show',{label,reveal:true});
+ // Hiding, navigation or locking invalidates replies already in flight, even if
+ // the user switches back to this tab before the network response arrives.
+ if(generation!==revealGeneration||document.hidden||!state.unlocked||
+    selected!==label||state.vault_epoch!==vault||document.getElementById('visible-password')!==target)return;
+ target.textContent=data.password;
+ revealTimer=setTimeout(hidePassword,15000);
+}
 function render(){hidePassword();selected=null;notify('');document.getElementById('badge').textContent=state.unlocked?'VAULT UNLOCKED':'VAULT LOCKED';document.querySelector('.count').textContent=state.unlocked?state.labels.length:'—';
  if(!state.unlocked){screen.innerHTML=`<div class="hero"><div><div class="eyebrow">MAODIE IS ON GUARD. YOUR SECRETS STAY LOCAL.</div><h1>Big cat energy.<br>Little secret keeper.</h1><p>A quiet home for your passwords, guarded by a very serious cat.</p></div><div class="portrait"><img src="/assets/welcome.png" alt="A serious orange cat"><span class="sticker">CERTIFIED SECRET KEEPER</span></div></div><form class="card" id="unlock-form"><div class="welcome-greeting"><div><h2>Welcome home.</h2><span>A little welcome, just for you.</span></div><img src="/assets/rose.png" alt="Maodie holding a red rose" width="96" height="96"></div><p class="sub">Create a test vault, or unlock one you have already saved.</p><label for="vault-name">Vault filename</label><input id="vault-name" name="name" value="ui-test.vault" required pattern="[A-Za-z0-9_-]{1,64}\\.vault" maxlength="70" spellcheck="false" autocomplete="off"><label for="master">Master passphrase</label><input id="master" name="master" type="password" required maxlength="1024" autocomplete="off"><div class="actions"><button type="submit" class="btn primary" value="unlock">Unlock vault &nbsp; →</button><button type="submit" class="btn quiet" value="create">Create new vault</button></div><p class="hint">New vaults need a passphrase of at least 12 characters. Keep it safe: it cannot be recovered.</p><div class="vault-guard"><img src="/assets/bodyguard.png" alt="Muscular Maodie showing a large paw" width="84" height="75"><div><strong>Big paws. Private vault.</strong><p class="hint">Files are saved in the dedicated local test-vault folder, never in browser storage.</p></div></div></form>`;return}
  screen.innerHTML=`<div class="workspace-head"><div><div class="eyebrow">A LITTLE ORDER. A LOT OF PEACE.</div><h1>Your private vault.</h1><span class="sub">${esc(state.name)} · ${state.labels.length} entries</span></div><button class="btn quiet" data-action="lock">Lock vault</button></div><div class="workspace"><div class="card list"><label for="search" style="margin-top:0">Find a secret</label><input id="search" placeholder="Search entry names…" autocomplete="off"><div id="entries"></div><button class="btn primary" style="width:100%;margin-top:22px" data-action="new">+ Add entry</button></div><div class="card detail" id="detail"><div class="empty"><img src="/assets/empty-state.png" alt="Cat with cartoon spider legs"><h2>A little room for secrets.</h2><p>Select an entry or add your first one.</p></div></div></div>`;filter('');armLock();
@@ -18,14 +32,14 @@ function filter(query){const found=state.labels.map((label,i)=>({label,i})).filt
 function newForm(){hidePassword();selected=null;document.getElementById('detail').innerHTML=`<form id="entry-form"><div class="detail-top"><div><div class="eyebrow">MAKE ROOM FOR ONE MORE</div><h2 style="margin-top:8px">A new little secret.</h2></div><img src="/assets/new-entry.png" alt="A small standing orange cat"></div><label for="entry-name">Entry name</label><input id="entry-name" name="label" required maxlength="256" autocomplete="off"><label for="username">Username</label><input id="username" name="username" maxlength="4096" autocomplete="off"><label for="entry-password">Password</label><input id="entry-password" name="password" type="password" required maxlength="4096" autocomplete="new-password"><label for="length">Generated password length (16–128)</label><div class="row"><input id="length" type="number" min="16" max="128" value="24"><button type="button" class="btn quiet" data-action="generate">Generate</button></div><div class="actions"><button class="btn primary" type="submit">Save entry</button><button class="btn quiet" type="button" data-action="cancel">Cancel</button></div><p class="hint">Saving writes an encrypted record to your local vault.</p></form>`;document.getElementById('entry-name').focus()}
 async function selectEntry(label){hidePassword();const data=await api('show',{label});selected=label;document.getElementById('detail').innerHTML=`<div class="eyebrow">ENTRY DETAILS</div><h2 style="margin-top:8px">${esc(label)}</h2><label>Username</label><div class="value">${esc(data.username)||'—'}</div><label>Password</label><div class="value" id="visible-password">••••••••••••••••</div><div class="actions"><button class="btn quiet" data-action="reveal">Reveal for 15s</button><button class="btn quiet" data-action="hide">Hide</button><button class="btn quiet" data-action="delete">Delete entry</button></div><p class="hint">Passwords stay hidden until requested. The vault locks after 5 minutes without an operation.</p>`;filter(document.getElementById('search').value)}
 function showError(e, simulated=false){hidePassword();if(e.unlocked===false){state={unlocked:false,labels:[],name:null};render()}const kind=e.kind||'access';const art={input:'error-state',access:'access-error',critical:'critical-error'}[kind]||'error-state';lastFocus=document.activeElement;overlay.innerHTML=`<div class="card error-panel ${kind==='critical'?'critical':''}"><img src="/assets/${art}.png" alt="Maodie reacting to an error"><div class="eyebrow">${simulated?'SIMULATED ERROR · VAULT LOCKED':kind==='critical'?'SERIOUS HISS. SAFE PAUSE.':'LET’S GET YOU BACK ON TRACK'}</div><h1 id="error-title">${kind==='critical'?'Something unexpected happened.':kind==='input'?'A little mix-up.':'Could not complete operation.'}</h1><p>${esc(e.error||'Could not reach the local server. Check that it is running, then reload.')}</p><div class="actions"><button class="btn primary" data-action="dismiss">${state.unlocked?'Back to vault':'Back to unlock'}</button></div></div>`;overlay.hidden=false;overlay.querySelector('button').focus()}
-async function act(action, fields={}){if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=true);try{
+async function act(action, fields={}){if(action==='hide'){hidePassword();return}if(busy)return;busy=true;document.querySelectorAll('button').forEach(b=>b.disabled=b.dataset.action!=='hide');try{
  if(action==='select')await selectEntry(state.labels[fields.index]);
  else if(action==='new')newForm();
  else if(action==='cancel')render();
  else if(action==='hide')hidePassword();
  else if(action==='dismiss'){overlay.hidden=true;overlay.innerHTML='';lastFocus?.isConnected&&lastFocus.focus()}
  else if(action==='generate'){const length=Number(document.getElementById('length').value);const data=await api('generate',{length});document.getElementById('entry-password').value=data.password;notify('A new password is ready. Save the entry to persist it.')}
- else if(action==='reveal'){const data=await api('show',{label:selected,reveal:true});hidePassword();document.getElementById('visible-password').textContent=data.password;revealTimer=setTimeout(hidePassword,15000)}
+ else if(action==='reveal')await revealPassword();
  else if(action==='delete'){if(!window.confirm(`Delete “${selected}” permanently from this vault?`))return;state=await api('delete',{label:selected});render();notify('Entry deleted from the encrypted vault.')}
  else if(action==='error-demo'){state=await api('lock');render();showError({kind:'critical',error:'This is a visual error test. Your vault was really locked; saved entries are unchanged.'},true)}
  else{state=await api(action,fields);render();if(action==='add')notify('Entry saved to your encrypted vault.');if(action==='create')notify('Vault created on disk. You can now add entries.');if(action==='lock')notify('Vault locked. Saved entries remain encrypted on disk.')}
@@ -38,4 +52,21 @@ document.addEventListener('keydown',e=>{if(overlay.hidden)return;if(e.key==='Esc
 document.addEventListener('visibilitychange',()=>{if(document.hidden)hidePassword()});
 window.addEventListener('pagehide',hidePassword);
 render();act('status');
-setInterval(async()=>{if(busy||!state.unlocked)return;try{const data=await api('status');if(!data.unlocked){state=data;render();notify('Vault automatically locked after inactivity.')}}catch{state={unlocked:false,labels:[],name:null};render();notify('Local server unavailable. Displayed secrets cleared.')}},15000);
+async function refreshStatus(){
+ if(busy||!state.unlocked)return;
+ const epoch=state.vault_epoch;
+ let notice;
+ try{
+  const data=await api('status');
+  if(data.unlocked&&data.vault_epoch===epoch)return;
+  notice=data.unlocked?'The open vault changed. Unlock the intended vault to continue.':'The vault is locked.';
+ }catch{
+  notice='Local server unavailable. Displayed secrets cleared.';
+ }
+ // Ignore status replies that describe an earlier view while another action runs.
+ if(busy||state.vault_epoch!==epoch)return;
+ state={unlocked:false,labels:[],name:null};
+ render();
+ notify(notice);
+}
+setInterval(refreshStatus,15000);

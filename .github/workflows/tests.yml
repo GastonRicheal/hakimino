@@ -56,6 +56,10 @@ jobs:
           PYCODE
       - name: Run core and GUI tests
         run: xvfb-run -a python -m pytest -v -ra --junitxml=test-results.xml
+      - name: Run frontend privacy regression tests
+        run: |
+          node --version
+          node --test tests/web_reveal.test.cjs
       - name: Reject skipped or missing GUI tests
         run: |
           python - <<'PYCODE'

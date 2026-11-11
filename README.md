@@ -288,7 +288,14 @@ not received an independent security audit.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+node --test tests/web_reveal.test.cjs
 ```
+
+The frontend regression suite requires Node.js 18 or later for development/tests
+only; running the password manager does not require Node. It executes the shipped
+JavaScript with controlled response timing and a minimal DOM, covering stale
+reveal responses after hide, navigation, lock and page visibility changes.
+These tests do not replace a real-browser usability review.
 
 Tests use temporary directories and explicitly synthetic credentials. They cover
 round-trip decryption, incorrect passwords, ciphertext and tag tampering, modified
@@ -299,10 +306,15 @@ personal vault or prove security against every attack.
 
 ### Recorded evidence and integration status
 
-The following is a **4 November 2026 review snapshot**, not a live CI badge.
-Application source under test was `7e7e353`; subsequent evidence/CI branches did
-not change application code. Each result applies to its recorded environment
-and revision, not automatically to every future commit.
+Integration status checked on **6 November 2026**: PRs #1–#6 are merged into
+`main`, through `cfa0470`. The latest integrated source passed 69 tests without
+skips on Windows, and its [Linux CI run](https://github.com/GastonRicheal/hakimino/actions/runs/41882203499)
+passed. The UI fixes following that baseline add frontend privacy regressions
+and full-height desktop guidance checks.
+
+The table below preserves **historical 4 November baseline evidence**. Its
+46-test results apply to application source `7e7e353`, before the later themed
+desktop and local web interface were merged. They are not current test totals.
 
 | Evidence | Actual result | Source |
 | --- | --- | --- |
@@ -312,15 +324,17 @@ and revision, not automatically to every future commit.
 | Native GUI manual usability review | Not completed: desktop-control connection to the Tk window was unavailable | Same acceptance report; automated widget tests are not manual evidence |
 | Second teammate's machine and full-duration GUI timers | Pending; no result supplied | Team checklist in the acceptance report |
 
-At this review snapshot PRs #1–#4 remain open and unmerged. Evidence is linked
-at its tested revision rather than through files that do not yet exist on main.
-CI becomes part of the shared default-branch workflow only after PR #3 is merged.
-Do not interpret an open PR or a successful test run as instructor receipt,
-complete rubric compliance, or permission to skip teammate review.
+CI is now active on main and pull requests. Historical evidence links retain
+their tested revisions. Subsequent fixes still use a scoped PR and teammate review.
+A successful test run or merged PR does not establish instructor receipt or
+complete rubric compliance.
 
 ### Remaining submission checks
 
-- [ ] Both teammates review proposed changes and agree the merge order.
+See [submission handoff](docs/SUBMISSION.md) for the clean-install commands,
+a short demonstration, and the items to confirm on the course site.
+
+- [ ] Obtain teammate review for any subsequent proposed changes before merging.
 - [ ] Run the suite again on the final integrated submission commit.
 - [ ] Perform native GUI checks on both actual machines, including a full
   15-second reveal interval, five-minute idle lock, and application restart.
@@ -358,4 +372,6 @@ unchanged; vaults created by either interface work in the other.
 
 ## Optional local web UI
 
-Run `.venv/bin/python -m hakimino.web --data-dir ./vaults/web-tests` to test the actual encrypted vault from a local browser. This is a loopback-only development interface, not a hosted service. Use dedicated test credentials. See [Local web UI](docs/LOCAL_WEB_UI.md) for behavior, safeguards and verification.
+See [Local web UI](docs/LOCAL_WEB_UI.md) for the Windows and macOS/Linux launch
+commands and verification steps. The browser interface uses the same encrypted
+vault code and listens only on the local machine. Use dedicated test credentials.
