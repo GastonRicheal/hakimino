@@ -13,7 +13,26 @@ terminal workflow. The optional browser interface is a local demonstration
 surface for synthetic data. Browser clients connected to one server process
 share its unlock state. The desktop and CLI use the same encrypted file format.
 
-## Integrated delivery status — 11 November 2026
+## Current implementation and acceptance rehearsal — 11 November 2026
+
+The stale-deletion fix is on main as
+`666ead44ab8b60b61bb25f44f57a55b75589d6c2`.
+Its [matching CI](https://github.com/GastonRicheal/hakimino/actions/runs/43091653826)
+passed 93 Python tests and 18 frontend tests on both Python versions, without skips.
+A fresh macOS rehearsal also passed 12 real CLI scenarios and real-duration
+15-second reveal / five-minute idle checks through Tk integration testing.
+Native OS dialog clicking on the acceptance machine remains a human check.
+
+Use the [English demo script](DEMO_SCRIPT.md) and read the
+[rehearsal evidence and follow-up resolutions](verification/rehearsal-2026-11-11.md).
+The two browser polish issues found in that rehearsal are resolved in the
+[web-polish follow-up](verification/web-polish-2026-11-11.md), which records
+93 Python tests, 31 frontend tests and 12 CLI scenarios passing locally.
+The final delivery includes the English script and rehearsal evidence. Check
+the CI for the exact final commit; the earlier linked run remains evidence for
+`666ead4` only. These handoff documents do not imply that course submission is complete.
+
+## Historical integrated baseline — PR #7
 
 [PR #7](https://github.com/GastonRicheal/hakimino/pull/7) is merged. The verified
 application revision on `main` is `f2d664226c67aa4abc1d18633a7c53664d0dfc71`.
@@ -44,8 +63,10 @@ and recovered the saved entry after the correct one was entered. A separate
 real-duration Tk check confirmed the five-minute idle lock and field clearing.
 
 This Windows rehearsal is the team's prior record, not a newly repeated test
-in the final macOS review. The final review independently confirmed a real
+in the final macOS review. The earlier final review independently confirmed a real
 15-second Tk reveal interval but did not repeat a full five-minute idle wait.
+The newer rehearsal linked above subsequently completed both real-duration
+checks on revision `666ead4`.
 Application and test files are unchanged between `8716ab2`, reviewed `07f071a`
 and the integrated `f2d6642` tree.
 

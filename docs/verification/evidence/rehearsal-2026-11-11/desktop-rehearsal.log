@@ -1,0 +1,13 @@
+PASS: create via Tk command; confirmation/save dialogs supplied synthetic responses
+PASS: generate, save and ciphertext-only persistence
+PASS: matching/nonmatching search and detail clearing
+PASS: real reveal timer; elapsed=15.61s
+PASS: cancel deletion preserves exact ciphertext
+PASS: manual lock clears fields
+PASS: wrong master rejected without a write
+PASS: correct unlock recovers saved credentials
+PASS: first desktop process closed
+PASS: fresh desktop process reopens persisted entry
+PASS: real five-minute idle lock; elapsed=301.52s
+PASS: tampered copy rejected; copy and original unchanged
+PASS: confirmed deletion and empty-state persistence

@@ -1,0 +1,26 @@
+✔ an explicit visible reveal succeeds and expires after 15 seconds (5.918042ms)
+✔ ignore a delayed reveal after tab hidden (1.158709ms)
+✔ ignore a delayed reveal after tab hidden then visible before reply (0.928958ms)
+✔ ignore a delayed reveal after page hidden (0.948209ms)
+✔ ignore a delayed reveal after manual hide while request is busy (0.876042ms)
+✔ ignore a delayed reveal after vault locked and view rendered (0.679833ms)
+✔ ignore a delayed reveal after entry changed (0.634625ms)
+✔ ignore a delayed reveal after same vault revision changed (0.713666ms)
+✔ ignore a delayed reveal after same vault reopened (0.809833ms)
+✔ ignore a delayed reveal after password view replaced (0.881125ms)
+✔ a hidden page cannot start a reveal request (0.674333ms)
+✔ returning to the tab requires a fresh explicit reveal (0.745542ms)
+✔ a stale reveal carries its original unlock and clears the old view (0.802292ms)
+✔ status polling clears the old view when a different unlock is active (0.60075ms)
+✔ reveal sends the viewed ciphertext revision (1.196083ms)
+✔ delete preserves the revision captured before confirmation (0.777542ms)
+✔ polling masks and clears a same-unlock changed revision (0.626834ms)
+✔ unchanged polling does not disrupt the selected entry (0.635833ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 90.100042

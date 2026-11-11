@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "checks": [
+    "Create vault with confirmation and non-echoing master prompt",
+    "Add entry through real non-echoing prompts",
+    "Persist entries across separate CLI process launches",
+    "Hide stored password by default",
+    "Reveal only on explicit request",
+    "Reject incorrect master password without changing the vault",
+    "Refuse initialization over an existing vault",
+    "Cancel deletion without changing stored data",
+    "Generate and persist a 24-character password",
+    "Confirm deletion and verify it from a new process",
+    "Reject a tampered disposable copy without rewriting it",
+    "Check ciphertext storage and normal lock/temp cleanup"
+  ],
+  "count": 12,
+  "temporary_vaults_removed": true
+}

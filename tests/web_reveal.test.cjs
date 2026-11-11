@@ -25,6 +25,7 @@ async function fixture() {
     addEventListener: (name, fn) => { events[name] = fn; },
   };
   const context = vm.createContext({
+    FormData: class { constructor(form) { return form.testFields; } },
     document, window: {addEventListener: (name, fn) => { windowEvents[name] = fn; }},
     fetch: async () => ({ok: true, json: async () => ({unlocked: false, labels: []})}),
     setTimeout(fn, delay) { timers.set(++timerId, {fn, delay}); return timerId; },
@@ -167,4 +168,105 @@ test('unchanged polling does not disrupt the selected entry', async () => {
   await pending;
   assert.equal(f.run('state.unlocked'), true);
   assert.equal(f.run('selected'), 'school');
+});
+
+
+for (const [count, expected] of [[0, '0 entries'], [1, '1 entry'], [2, '2 entries']]) {
+  test(`workspace count uses correct English for ${count} records`, async () => {
+    const f = await fixture();
+    f.run(`state.labels=Array(${count}).fill('school');render()`);
+    assert.ok(f.node('screen').innerHTML.includes(` · ${expected}</span>`));
+  });
+}
+
+function assertLockedFilename(f, expected) {
+  const html = f.node('screen').innerHTML;
+  assert.ok(html.includes(`name="name" value="${expected}"`));
+  const masterInput = html.match(/<input id="master"[^>]*>/)[0];
+  assert.ok(masterInput.includes('type="password"'));
+  assert.equal(/\bvalue=/.test(masterInput), false);
+  assert.equal(html.includes('synthetic-master-only'), false);
+}
+
+test('successful explicit lock retains only the last filename', async () => {
+  const f = await fixture();
+  f.run("state.name='presentation.vault';render()");
+  const pending = f.run("act('lock')");
+  f.reply({unlocked:false,labels:[],name:null}); await pending;
+  assertLockedFilename(f, 'presentation.vault');
+});
+
+for (const action of ['unlock', 'create']) {
+  test(`failed ${action} retains the attempted filename without the passphrase`, async () => {
+    const f = await fixture();
+    const pending = f.run(`act('${action}',{name:'attempted.vault',master:'synthetic-master-only'})`);
+    f.reply({unlocked:false,kind:'access',error:'Cannot open this vault.'}, false);
+    await pending;
+    assertLockedFilename(f, 'attempted.vault');
+    assert.equal(f.run('state.unlocked'), false);
+  });
+}
+
+test('status expiry remembers the viewed vault rather than another client vault', async () => {
+  const f = await fixture();
+  f.run("state.name='intended.vault';render()");
+  const pending = f.run('refreshStatus()');
+  f.reply({unlocked:true,labels:[],name:'another.vault',vault_epoch:2,vault_revision:'other'});
+  await pending;
+  assertLockedFilename(f, 'intended.vault');
+});
+
+test('network failure retains the filename while clearing the unlocked view', async () => {
+  const f = await fixture();
+  f.run("state.name='offline.vault';render()");
+  const pending = f.run("act('lock')");
+  f.reply({}, false); await pending;
+  assertLockedFilename(f, 'offline.vault');
+  assert.equal(f.run('state.unlocked'), false);
+});
+
+test('server expiry retains the last filename', async () => {
+  const f = await fixture();
+  f.run("state.name='expired.vault';render()");
+  const pending = f.run('refreshStatus()');
+  f.reply({unlocked:false,labels:[],name:null}); await pending;
+  assertLockedFilename(f, 'expired.vault');
+});
+
+test('successful unlock updates the remembered filename for the next lock', async () => {
+  const f = await fixture();
+  const pending = f.run("act('unlock',{name:'second.vault',master:'synthetic-master-only'})");
+  f.reply({unlocked:true,labels:[],name:'second.vault',vault_epoch:2,vault_revision:'new'});
+  await pending;
+  f.run("state={unlocked:false,labels:[],name:null};render()");
+  assertLockedFilename(f, 'second.vault');
+});
+
+test('a rejected filename is escaped before rendering into an attribute', async () => {
+  const f = await fixture();
+  const pending = f.run(`act('unlock',{name:'bad"<>&.vault',master:'synthetic-master-only'})`);
+  f.reply({unlocked:false,kind:'input',error:'Invalid filename.'}, false); await pending;
+  assertLockedFilename(f, 'bad&quot;&lt;&gt;&amp;.vault');
+  assert.equal(f.node('screen').innerHTML.includes('value="bad"<>&.vault"'), false);
+});
+
+test('form submission clears the password field before sending the request', async () => {
+  const f = await fixture();
+  f.node('master').value = 'synthetic-master-only';
+  f.events.submit({preventDefault() {}, target:{id:'unlock-form',testFields:[
+    ['name','submitted.vault'],['master','synthetic-master-only'],
+  ]},submitter:{value:'unlock'}});
+  assert.equal(f.node('master').value, '');
+  assert.equal(f.payload.name, 'submitted.vault');
+  f.reply({unlocked:false,kind:'access',error:'Incorrect password.'}, false);
+  await new Promise(setImmediate);
+  assertLockedFilename(f, 'submitted.vault');
+});
+
+test('a fresh page starts with the default filename, not a persisted credential', async () => {
+  const first = await fixture();
+  first.run("vaultName='previous-page.vault'");
+  const second = await fixture();
+  assert.equal(second.run('vaultName'), 'ui-test.vault');
+  // The fixture exposes no localStorage/sessionStorage. Any use would fail.
 });

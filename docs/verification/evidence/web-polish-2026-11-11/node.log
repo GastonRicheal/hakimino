@@ -1,0 +1,39 @@
+✔ an explicit visible reveal succeeds and expires after 15 seconds (8.12975ms)
+✔ ignore a delayed reveal after tab hidden (1.653333ms)
+✔ ignore a delayed reveal after tab hidden then visible before reply (1.08825ms)
+✔ ignore a delayed reveal after page hidden (1.250042ms)
+✔ ignore a delayed reveal after manual hide while request is busy (1.488167ms)
+✔ ignore a delayed reveal after vault locked and view rendered (1.27575ms)
+✔ ignore a delayed reveal after entry changed (1.460417ms)
+✔ ignore a delayed reveal after same vault revision changed (1.064917ms)
+✔ ignore a delayed reveal after same vault reopened (0.912875ms)
+✔ ignore a delayed reveal after password view replaced (1.011333ms)
+✔ a hidden page cannot start a reveal request (1.028584ms)
+✔ returning to the tab requires a fresh explicit reveal (1.68075ms)
+✔ a stale reveal carries its original unlock and clears the old view (1.986333ms)
+✔ status polling clears the old view when a different unlock is active (2.941458ms)
+✔ reveal sends the viewed ciphertext revision (1.467917ms)
+✔ delete preserves the revision captured before confirmation (1.157625ms)
+✔ polling masks and clears a same-unlock changed revision (1.293416ms)
+✔ unchanged polling does not disrupt the selected entry (1.459125ms)
+✔ workspace count uses correct English for 0 records (1.292834ms)
+✔ workspace count uses correct English for 1 records (1.09825ms)
+✔ workspace count uses correct English for 2 records (0.989375ms)
+✔ successful explicit lock retains only the last filename (1.492084ms)
+✔ failed unlock retains the attempted filename without the passphrase (1.074833ms)
+✔ failed create retains the attempted filename without the passphrase (1.39475ms)
+✔ status expiry remembers the viewed vault rather than another client vault (3.010459ms)
+✔ network failure retains the filename while clearing the unlocked view (1.546792ms)
+✔ server expiry retains the last filename (1.655625ms)
+✔ successful unlock updates the remembered filename for the next lock (1.306542ms)
+✔ a rejected filename is escaped before rendering into an attribute (1.252375ms)
+✔ form submission clears the password field before sending the request (1.562542ms)
+✔ a fresh page starts with the default filename, not a persisted credential (1.468292ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.382417
