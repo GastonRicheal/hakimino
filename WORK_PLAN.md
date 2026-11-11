@@ -50,7 +50,10 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
     verification and the demonstration sequence.
   - Windows clean install and scripted desktop rehearsal completed on 11 November
     for implementation `8716ab2`. The handoff records the test counts, timers and CI.
-  - Check team names/IDs together and obtain teammate review of PR #7.
+  - PR #7 merged into `f2d6642`; main CI passed 74 Python and 13 frontend tests
+    for each Linux/Python job. See the [final verification record](docs/verification/submission-2026-11-11.md).
+  - The posted review is explicitly AI-assisted and is not a substitute for
+    both teammates checking the deliverable, names/IDs and contribution wording.
   - Confirm the instructor's submission channel, deadline time/timezone, and required
     files before delivering. A Git push is not proof of instructor receipt.
 

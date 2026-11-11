@@ -13,7 +13,22 @@ terminal workflow. The optional browser interface is a local demonstration
 surface for synthetic data. Browser clients connected to one server process
 share its unlock state. The desktop and CLI use the same encrypted file format.
 
-## Verified on 11 November 2026
+## Integrated delivery status — 11 November 2026
+
+[PR #7](https://github.com/GastonRicheal/hakimino/pull/7) is merged. The verified
+application revision on `main` is `f2d664226c67aa4abc1d18633a7c53664d0dfc71`.
+Its tree is identical to reviewed candidate `07f071ac825c88674c50c9f52a0fe6fc2d8f9181`.
+The [main CI run 43046115283](https://github.com/GastonRicheal/hakimino/actions/runs/43046115283)
+passed on both Linux/Python versions: 74 Python tests, 13 frontend tests and
+`pip check`, with no skipped tests. The repository was confirmed public with
+`main` as its default branch; instructor receipt has not been established.
+
+See the [final verification record](verification/submission-2026-11-11.md) for
+clean-install evidence, archive checks, limitations and a submission checklist.
+Later documentation-only commits must still be checked against their own CI;
+the linked run above applies specifically to `f2d6642`.
+
+## Previously recorded Windows rehearsal — 11 November 2026
 
 Implementation commit [`8716ab2`](https://github.com/GastonRicheal/hakimino/commit/8716ab217e03d5feb5a88560d8f3503d6fe3cd5e)
 was installed from its Git source archive in a fresh Windows virtual environment.
@@ -28,9 +43,11 @@ searched for the entry, and verified that the password hid after the default
 and recovered the saved entry after the correct one was entered. A separate
 real-duration Tk check confirmed the five-minute idle lock and field clearing.
 
-The closing documentation update preserves the verified application and test
-files. Use [PR #7](https://github.com/GastonRicheal/hakimino/pull/7) to review
-the exact candidate revision and its checks before merging.
+This Windows rehearsal is the team's prior record, not a newly repeated test
+in the final macOS review. The final review independently confirmed a real
+15-second Tk reveal interval but did not repeat a full five-minute idle wait.
+Application and test files are unchanged between `8716ab2`, reviewed `07f071a`
+and the integrated `f2d6642` tree.
 
 ## Verify the candidate
 
@@ -55,6 +72,10 @@ required only for the frontend regression suite. Check the matching revision in
 the [GitHub Actions results](https://github.com/GastonRicheal/hakimino/actions).
 
 ## Demonstrate with a disposable vault
+
+Use one client per vault. Do not concurrently modify it from another desktop
+window, CLI process or browser tab: a stale deletion can remove a same-name
+replacement entry. The known limitation is not fixed by this documentation.
 
 1. Create `demo.vault` with a synthetic master passphrase. Add an entry using a
    fictional username and generate its password in the app.

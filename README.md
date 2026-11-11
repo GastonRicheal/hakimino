@@ -284,6 +284,17 @@ Locks coordinate this application; they do not defeat a hostile local user who
 can replace files or use alternate path aliases. This coursework prototype has
 not received an independent security audit.
 
+### Single-client use during the demonstration
+
+Do not modify the same vault concurrently from multiple desktop windows, CLI
+processes or browser tabs. Deletion identifies an entry by its name, not by a
+record revision: a stale selection can delete a newer replacement with the same
+name. File locks serialize individual operations but do not validate the state
+seen before confirmation. The web unlock-epoch check prevents operations from
+an earlier unlock; it does not detect same-unlock entry replacement. This known
+limitation remains unfixed. Use one client per vault and synthetic demonstration
+data; see the [verification record](docs/verification/submission-2026-11-11.md).
+
 ## Verification
 
 ```powershell
@@ -306,11 +317,14 @@ personal vault or prove security against every attack.
 
 ### Recorded evidence and integration status
 
-Integration status checked on **6 November 2026**: PRs #1–#6 are merged into
-`main`, through `cfa0470`. The latest integrated source passed 69 tests without
-skips on Windows, and its [Linux CI run](https://github.com/GastonRicheal/hakimino/actions/runs/41882203499)
-passed. The UI fixes following that baseline add frontend privacy regressions
-and full-height desktop guidance checks.
+Integration status checked on **11 November 2026**: PRs #1–#7 are merged into
+`main`, through [`f2d6642`](https://github.com/GastonRicheal/hakimino/commit/f2d664226c67aa4abc1d18633a7c53664d0dfc71).
+The merge tree matches the reviewed candidate `07f071a`. Both Python 3.11 and
+3.12 jobs in the [main push CI run](https://github.com/GastonRicheal/hakimino/actions/runs/43046115283)
+passed 74 Python tests and 13 frontend tests without skips; dependency checks
+also passed. A fresh macOS source-archive installation of the candidate passed
+the same suites. See the [final technical verification record](docs/verification/submission-2026-11-11.md)
+for the tested revisions, evidence boundaries and unresolved submission checks.
 
 The table below preserves **historical 4 November baseline evidence**. Its
 46-test results apply to application source `7e7e353`, before the later themed
@@ -335,7 +349,8 @@ See [submission handoff](docs/SUBMISSION.md) for the clean-install commands,
 a short demonstration, and the items to confirm on the course site.
 
 - [ ] Obtain teammate review for any subsequent proposed changes before merging.
-- [ ] Run the suite again on the final integrated submission commit.
+- [x] Verify integrated application revision `f2d6642` with its main CI. Recheck
+  the matching CI result if submitting a later revision.
 - [ ] Perform native GUI checks on both actual machines, including a full
   15-second reveal interval, five-minute idle lock, and application restart.
 - [ ] Confirm team names/IDs and record only mutually agreed, factual contributions.

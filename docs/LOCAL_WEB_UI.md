@@ -24,6 +24,17 @@ Opening or reopening a vault invalidates previous views. If another tab changes
 the open vault, operations from the old view are refused and the old view clears
 when it next checks the session. Unlock the intended vault before continuing.
 
+## Same-vault concurrency limitation
+
+Use one client per vault during the synthetic-data demonstration. The unlock
+epoch does not change when another client deletes and recreates an entry in the
+same unlocked vault. An old view can therefore reveal or delete the replacement
+under the same name. This is a pre-existing record-version limitation, distinct
+from the cross-vault protection. Desktop and CLI deletion also identify records
+by name and can encounter the same replacement race. No concurrent-edit safety
+or production-security guarantee is made. A future fix must compare the expected
+record version atomically under the file lock.
+
 ## Scope and safeguards
 
 - Bind only to `127.0.0.1`; do not proxy, expose, or deploy this development server publicly.
