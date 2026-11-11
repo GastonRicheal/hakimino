@@ -48,8 +48,9 @@ Use synthetic credentials only. Never commit vault files, secrets, or private re
 - [ ] 6. Freeze and rehearse the submission.
   - Follow [the submission handoff](docs/SUBMISSION.md) for clean installation,
     verification and the demonstration sequence.
-  - Install from a clean checkout and run tests on the exact candidate commit.
-  - Rehearse a short synthetic-data demonstration; check team names/IDs together.
+  - Windows clean install and scripted desktop rehearsal completed on 11 November
+    for implementation `8716ab2`. The handoff records the test counts, timers and CI.
+  - Check team names/IDs together and obtain teammate review of PR #7.
   - Confirm the instructor's submission channel, deadline time/timezone, and required
     files before delivering. A Git push is not proof of instructor receipt.
 
